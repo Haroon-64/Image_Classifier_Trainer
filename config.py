@@ -1,5 +1,5 @@
 
-settings = {
+Default_settings = {
     'data_path': './data/',          # Path to image data
     'model_size': '18',              # 18, 34, 50, 101, 152
     'image_size' : 224,

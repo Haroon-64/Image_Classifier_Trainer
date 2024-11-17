@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from config import settings
+from config import Default_settings as settings
 import data_load
 import model_build
 import visualiser
@@ -9,19 +9,26 @@ app = FastAPI()
 
 # Model to receive config data from Flutter
 class Config(BaseModel):
-    data_path: str
-    model_size: str
-    epochs: int
-    batch_size: int
+  data_path: str
+  model_size: str
+  image_size: int
+  transform: str = None
+  num_classes: int
+  epochs: int
+  batch_size: int
+  learning_rate: float
+  output_path: str
 
-@app.post("/configure")
-def configure(config: Config):
-    settings['data_path'] = config.data_path
-    settings['model_size'] = config.model_size
-    settings['epochs'] = config.epochs
-    settings['batch_size'] = config.batch_size
-    
-    return {"status": "Configuration updated"}
+
+@app.get("/config", response_model=Config)
+def get_config():
+  return current_config
+
+@app.post("/config")
+def update_config(new_config: Config):
+  global current_config
+  current_config = new_config
+  return {"message": "Configuration updated successfully", "config": current_config}
 
 @app.post("/train")
 def train():
@@ -33,9 +40,8 @@ def train():
 
 @app.get("/status")
 def status():
-    # Idealy, return training progress or model status
-    return {"status": "Idle"}
+   pass
 
 if __name__ == '__main__':
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app, host="127.0.0.1", port=8000) # web server for the API

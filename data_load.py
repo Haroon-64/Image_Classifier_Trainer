@@ -1,7 +1,8 @@
 # data_loader.py
 import os
 from PIL import Image
-from torchvision.utils import data_loader, transforms
+from torchvision.transforms import transforms
+import torch.utils.data as data_loader
 
 class ImageDataset(data_loader.Dataset):
     """
