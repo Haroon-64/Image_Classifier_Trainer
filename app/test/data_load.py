@@ -41,7 +41,7 @@ def get_data_loader(data_path, transform, batch_size):
     create a data loader for image data at a given path and transforms
     """
     dataset = ImageDataset(data_path, transform)
-    data_loader = data_loader.DataLoader(dataset,
+    return data_loader.DataLoader(dataset,
                                         batch_size=batch_size,
                                         shuffle=True)
-    return data_loader
+    

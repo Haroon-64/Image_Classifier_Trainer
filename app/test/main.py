@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from config import Default_settings as settings
 import data_load
 import model_build
-import visualiser
+# import visualiser
 
 app = FastAPI()
 
@@ -17,7 +17,7 @@ class Config(BaseModel):
   epochs: int
   batch_size: int
   learning_rate: float
-  output_path: str
+  output_path: str  
 
 
 @app.get("/config", response_model=Config)
@@ -29,6 +29,9 @@ def update_config(new_config: Config):
   global current_config
   current_config = new_config
   return {"message": "Configuration updated successfully", "config": current_config}
+
+app.post("/data")
+app.post("/model")
 
 @app.post("/train")
 def train():
