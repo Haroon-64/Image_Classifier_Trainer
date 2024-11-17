@@ -1,0 +1,6 @@
+pip install requirements.txt for windows
+uvicorn main:app --reload from directory of main.py
+
+check endpoints at http://127.0.0.1:8000/docs
+
+these can be used in ui then
