@@ -1,72 +1,121 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const MaterialApp(
+      title: 'Flutter + FastAPI',
+      home: HomePage(),
+    );
+  }
+}
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
   @override
-  // ignore: library_private_types_in_public_api
   _HomePageState createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  final TextEditingController urlController = TextEditingController();
-  String status = "Idle";
+  String status = "No status fetched";
+  Map<String, dynamic> config = {
+    "data_path": "",
+    "model_size": "small",
+    "image_size": 224,
+    "num_classes": 2,
+    "epochs": 1,
+    "batch_size": 32,
+    "learning_rate": 0.001,
+    "output_path": "./output",
+  };
 
-  // Function to validate if the entered text is a valid URL
-  bool isValidUrl(String url) {
-    final uri = Uri.tryParse(url);
-    return uri != null && (uri.isScheme('http') || uri.isScheme('https'));
+  // Fetch backend status
+  Future<void> fetchStatus() async {
+    final response = await http.get(Uri.parse('http://127.0.0.1:8000/status'));
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      setState(() {
+        status = data["status"];
+      });
+    } else {
+      setState(() {
+        status = "Failed to fetch status";
+      });
+    }
+  }
+
+  // Update backend config
+  Future<void> updateConfig() async {
+    final response = await http.post(
+      Uri.parse('http://127.0.0.1:8000/config'),
+      headers: {"Content-Type": "application/json"},
+      body: json.encode(config),
+    );
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(data["message"])),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Failed to update config")),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Image Classifier")),
+      appBar: AppBar(title: const Text('Flutter + FastAPI')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextField(
-              controller: urlController,
-              decoration: InputDecoration(
-                labelText: "Enter API URL",
-                hintText: "https://example.com",
-                errorText: isValidUrl(urlController.text) || urlController.text.isEmpty
-                    ? null
-                    : "Please enter a valid URL",
-              ),
-              keyboardType: TextInputType.url,
-              onChanged: (text) {
-                setState(() {});  // Rebuild to update error text if needed
-              },
-            ),
-            const SizedBox(height: 20),
-            // Example button to use the URL input
+            Text("Backend Status: $status"),
+            const SizedBox(height: 10),
             ElevatedButton(
-              onPressed: () {
-                if (isValidUrl(urlController.text)) {
-                  // Use the URL for API calls or configuration
-                  print("URL Entered: ${urlController.text}");
-                  setState(() {
-                    status = "URL configured: ${urlController.text}";
-                  });
-                } else {
-                  print("Invalid URL entered.");
-                }
-              },
-              child: const Text("Set URL"),
+              onPressed: fetchStatus,
+              child: const Text('Fetch Status'),
             ),
             const SizedBox(height: 20),
-            Text("Status: $status"),
+            const Text("Update Config"),
+            TextField(
+              decoration: const InputDecoration(labelText: "Data Path"),
+              onChanged: (value) {
+                config["data_path"] = value;
+              },
+            ),
+            DropdownButton<String>(
+              value: config["model_size"],
+              items: ["small", "medium", "large"]
+                  .map((size) => DropdownMenuItem(
+                        value: size,
+                        child: Text(size),
+                      ))
+                  .toList(),
+              onChanged: (value) {
+                setState(() {
+                  config["model_size"] = value!;
+                });
+              },
+            ),
+            ElevatedButton(
+              onPressed: updateConfig,
+              child: const Text('Update Config'),
+            ),
           ],
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    urlController.dispose();
-    super.dispose();
   }
 }

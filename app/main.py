@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
+from fastapi.middleware.cors import CORSMiddleware
 
 import os
 from torchvision import transforms
@@ -21,6 +22,14 @@ from PIL import Image
 
 app = FastAPI()
 
+
+app.add_middleware(
+  CORSMiddleware,
+  allow_origins=["*"],  # Allow all origins for development
+  allow_credentials=True,
+  allow_methods=["*"],
+  allow_headers=["*"],
+)
 
 class Config(BaseModel):
   data_path: str = Field(..., description="Path to the dataset folder", example="./data/images")
