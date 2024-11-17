@@ -24,7 +24,7 @@ app = FastAPI()
 
 class Config(BaseModel):
   data_path: str = Field(..., description="Path to the dataset folder", example="./data/images")
-  model: nn.Module = None
+  # model: nn.Module = None
   model_size: str = Field(..., description="Model size: 'small' or 'large'", example="small")
   image_size: int = Field(..., description="Size of the input images (square dimensions)", example=224)
   transform: str = Field(None, description="Data augmentation strategy: 'augmentation' or None", example="augmentation")
@@ -49,6 +49,10 @@ current_config = Config(
 training_status = "Idle"
 current_dataloader = None
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+@app.get("/")
+def read_root():
+    return {"message": "root endpoint"}
 
 @app.get("/config", response_model=Config)
 def get_config():
