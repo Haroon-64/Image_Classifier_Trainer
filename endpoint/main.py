@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import BackgroundTasks, FastAPI
 from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -9,7 +9,6 @@ from torch.utils.data import DataLoader
 
 # import torch.nn as nn
 from torchvision.models import resnet18, resnet34, resnet50, resnet101, resnet152
-from torch.utils.tensorboard import SummaryWriter
 
 import torch
 from torch.optim import Adam
@@ -53,6 +52,7 @@ current_config = Config(
   output_path="./output",
 )
 current_model = None
+current_epoch = 0
 
 
 training_status = "Idle"
@@ -130,14 +130,12 @@ def save_model():
   Save the current model to the output path specified in the configuration.
   """
   global current_config
-  if current_config.model is None:
+  if current_model is None:
     return {"error": "No model to save"}
-  
+
   model_path = f"{current_config.output_path}/model.pth"
   os.makedirs(current_config.output_path, exist_ok=True)
-  
-  # Save the model's state dictionary
-  torch.save(current_config.model.state_dict(), model_path)
+  torch.save(current_model.state_dict(), model_path)
   return {"message": f"Model saved successfully at {model_path}"}
 
 @app.post("/model/load")
@@ -169,8 +167,9 @@ def load_model():
     return {"error": "Invalid model size"}
 
 @app.post("/train")
-def train():
-  global current_model, current_dataloader, current_config, training_status
+def train(background_tasks: BackgroundTasks):
+
+  global current_model, current_dataloader, current_config, training_status, current_epoch
 
   if current_model is None:
     training_status = "Error: Model not built"
@@ -188,7 +187,9 @@ def train():
 
   training_status = "Training in progress"
   try:
+    current_epoch += 1 
     for epoch in range(current_config.epochs):
+      background_tasks.add_task(epoch, current_config.epochs)
       epoch_loss = 0.0
       for i, (images, labels) in enumerate(current_dataloader):
         images, labels = images.to(device), labels.to(device)
@@ -208,6 +209,10 @@ def train():
     return {"error": training_status}
 
   return {"message": "Training complete"}
+
+@app.get("/train/progress")
+async def get_progress():
+    return {"epoch": current_epoch, "total_epochs": current_config.epochs}
 
 
 @app.get("/status")

@@ -33,10 +33,20 @@ const App: React.FC = () => {
 
     const [status, setStatus] = useState<string>("");
     const [modelTrained, setModelTrained] = useState<boolean>(false); // Track training status
-
-
-    const updateConfig = async (newConfig: Config) => {
+    const [trainingProgress, setTrainingProgress] = useState<string>("");
+    
+    
+    const pollTrainingProgress = async () => {
         try {
+            const response = await axios.get("http://127.0.0.1:8000/train/progress");
+            setTrainingProgress(`Training in progress: Epoch ${response.data.epoch}`);
+        } catch (error) {
+            setStatus(`Error: ${error}`);
+        }
+    };
+    
+    const updateConfig = async (newConfig: Config) => {
+        try {   
             await axios.post("http://127.0.0.1:8000/config", newConfig);
             setConfig(newConfig);
             setStatus("Configuration updated successfully.");
@@ -58,6 +68,12 @@ const App: React.FC = () => {
         try {
             const response = await axios.post("http://127.0.0.1:8000/train");
             setStatus(response.data.message || "Training started.");
+            const interval = setInterval(pollTrainingProgress, 1000); // Poll every second
+            setTimeout(() => {
+                clearInterval(interval);
+                setModelTrained(true);
+                setStatus("Training completed.");
+            }, config.epochs * 1000);
         } catch (error) {
             setStatus(`Error: ${error}`);
         }
@@ -220,6 +236,11 @@ const App: React.FC = () => {
                 <button onClick={startTraining}>Start Training</button>
 
 
+            <div>
+                <h2>Training Progress</h2>
+                <p>{trainingProgress}</p>
+            </div>
+            
             </div>
             {modelTrained && (
                 <div>
@@ -227,6 +248,7 @@ const App: React.FC = () => {
                     <button onClick={loadModel}>Load Model</button>
                 </div>
             )}
+
         </div>
     );
 };
