@@ -79,7 +79,7 @@ const App: React.FC = () => {
         }
     };
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setConfig((prevConfig) => ({
             ...prevConfig,
@@ -128,9 +128,10 @@ const App: React.FC = () => {
                 </label>
 
                 <label>
-                    Or select directory:
+                Or select directory:
                     <input
                         type="file"
+                        // @ts-ignore
                         webkitdirectory="true"
                         onChange={(e) => {
                             const files = e.target.files;
@@ -152,14 +153,15 @@ const App: React.FC = () => {
                     <select
                         name="model_size"
                         value={config.model_size}
-                        onChange={handleInputChange}
-                    >
+                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleInputChange(e)} // Adjust event type here
+                        >
                         <option value="small">Small</option>
                         <option value="medium">Medium</option>
                         <option value="large">Large</option>
                         <option value="xlarge">X-Large</option>
                         <option value="xxlarge">XX-Large</option>
                     </select>
+
                 </label>
 
 
