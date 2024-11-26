@@ -1,37 +1,9 @@
-// import React from "react";
-// import ConfigForm from "./components/ConfigForm";
-
-// const App: React.FC = () => {
-//   return (
-//     <div>
-//       <h1>ML Training App</h1>
-//       <ConfigForm />
-//     </div>
-//   );
-// };
-
-// export default App;
-
-
 import React, { useState } from "react";
 import axios from "axios";
 import "./App.css";
 
-// Define TypeScript types for the configuration
-interface Config {
-  data_path: string;
-  model_size: string;
-  image_size: number;
-  transform: string | null;
-  num_classes: number;
-  epochs: number;
-  batch_size: number;
-  learning_rate: number;
-  output_path: string;
-}
-
-const App: React.FC = () => {
-  const [config, setConfig] = useState<Config>({
+const App = () => {
+  const [config, setConfig] = useState({
     data_path: "",
     model_size: "small",
     image_size: 224,
@@ -43,15 +15,15 @@ const App: React.FC = () => {
     output_path: "./output",
   });
 
-  const [status, setStatus] = useState<string>("");
+  const [status, setStatus] = useState("");
 
-  const updateConfig = async (newConfig: Config) => {
+  const updateConfig = async (newConfig) => {
     try {
       await axios.post("http://127.0.0.1:8000/config", newConfig);
       setConfig(newConfig);
       setStatus("Configuration updated successfully.");
     } catch (error) {
-      setStatus(`Error: ${error}`);
+      setStatus(`Error: ${error.message}`);
     }
   };
 
@@ -60,7 +32,7 @@ const App: React.FC = () => {
       const response = await axios.post("http://127.0.0.1:8000/data");
       setStatus(response.data.message || "Data loaded successfully.");
     } catch (error) {
-      setStatus(`Error: ${error}`);
+      setStatus(`Error: ${error.message}`);
     }
   };
 
@@ -69,11 +41,11 @@ const App: React.FC = () => {
       const response = await axios.post("http://127.0.0.1:8000/train");
       setStatus(response.data.message || "Training started.");
     } catch (error) {
-      setStatus(`Error: ${error}`);
+      setStatus(`Error: ${error.message}`);
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e) => {
     const { name, value } = e.target;
     setConfig((prevConfig) => ({
       ...prevConfig,

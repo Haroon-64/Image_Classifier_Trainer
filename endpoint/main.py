@@ -7,7 +7,7 @@ from torchvision import transforms
 from torchvision.datasets import ImageFolder
 from torch.utils.data import DataLoader
 
-import torch.nn as nn
+# import torch.nn as nn
 from torchvision.models import resnet18, resnet34, resnet50, resnet101, resnet152
 from torch.utils.tensorboard import SummaryWriter
 
@@ -32,6 +32,7 @@ app.add_middleware(
 )
 
 class Config(BaseModel):
+  protected_namespaces = ()
   data_path: str = Field(..., description="Path to the dataset folder", example="./data/images")
   # model: nn.Module = None
   model_size: str = Field(..., description="Model size: 'small' or 'large'", example="small")
