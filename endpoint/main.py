@@ -32,10 +32,8 @@ app.add_middleware(
 )
 
 class Config(BaseModel):
-  protected_namespaces = ()
   data_path: str = Field(..., description="Path to the dataset folder", example="./data/images")
-  # model: nn.Module = None
-  model_size: str = Field(..., description="Model size: 'small' or 'large'", example="small")
+  model_size: str = Field(..., description="Model size: 'small', 'medium', 'large', etc.", example="small")
   image_size: int = Field(..., description="Size of the input images (square dimensions)", example=224)
   transform: str = Field(None, description="Data augmentation strategy: 'augmentation' or None", example="augmentation")
   num_classes: int = Field(..., description="Number of output classes", example=10)
@@ -43,7 +41,6 @@ class Config(BaseModel):
   batch_size: int = Field(..., description="Batch size for training", example=32)
   learning_rate: float = Field(..., description="Learning rate for the optimizer", example=0.001)
   output_path: str = Field(..., description="Directory to save trained models and outputs", example="./output")
-
 
 current_config = Config(
   data_path="",
@@ -55,6 +52,8 @@ current_config = Config(
   learning_rate=0.001,
   output_path="./output",
 )
+current_model = None
+
 
 training_status = "Idle"
 current_dataloader = None
@@ -107,10 +106,7 @@ def load_data():
 
 @app.post("/model")
 def build_model(pretr: bool = True):
-  """
-  Build and store the model in the configuration based on the model size.
-  """
-  global current_config
+  global current_model, current_config
 
   model_map = {
     "small": resnet18,
@@ -121,12 +117,12 @@ def build_model(pretr: bool = True):
   }
 
   if current_config.model_size in model_map:
-    current_config.model = model_map[current_config.model_size](pretrained=pretr)
+    model_class = model_map[current_config.model_size]
+    current_model = model_class(pretrained=pretr)
     return {"message": f"Model '{current_config.model_size}' built successfully"}
-  elif current_config.model_size == "custom":
-    return {"error": "Custom models not supported yet"}
   else:
     return {"error": "Invalid model size"}
+
   
 @app.post("/model/save")
 def save_model():
@@ -174,9 +170,9 @@ def load_model():
 
 @app.post("/train")
 def train():
-  global current_config, current_dataloader, training_status
+  global current_model, current_dataloader, current_config, training_status
 
-  if current_config.model is None:
+  if current_model is None:
     training_status = "Error: Model not built"
     return {"error": training_status}
 
@@ -185,14 +181,10 @@ def train():
     return {"error": training_status}
 
   device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-  current_config.model = current_config.model.to(device)
+  current_model = current_model.to(device)
 
   criterion = CrossEntropyLoss()
-  optimizer = Adam(current_config.model.parameters(), lr=current_config.learning_rate)
-
-  log_dir = os.path.join(current_config.output_path, "logs")
-  os.makedirs(log_dir, exist_ok=True)
-  writer = SummaryWriter(log_dir)
+  optimizer = Adam(current_model.parameters(), lr=current_config.learning_rate)
 
   training_status = "Training in progress"
   try:
@@ -201,25 +193,22 @@ def train():
       for i, (images, labels) in enumerate(current_dataloader):
         images, labels = images.to(device), labels.to(device)
         optimizer.zero_grad()
-        outputs = current_config.model(images)
+        outputs = current_model(images)
         loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
         epoch_loss += loss.item()
-        writer.add_scalar("Loss/step", loss.item(), epoch * len(current_dataloader) + i)
       
       avg_loss = epoch_loss / len(current_dataloader)
-      writer.add_scalar("Loss/epoch", avg_loss, epoch)
       print(f"Epoch {epoch+1}/{current_config.epochs}, Loss: {avg_loss}")
     
     training_status = "Training complete"
   except Exception as e:
     training_status = f"Error during training: {str(e)}"
-    writer.close()
     return {"error": training_status}
-  
-  writer.close()
+
   return {"message": "Training complete"}
+
 
 @app.get("/status")
 def status():
