@@ -42,6 +42,7 @@ class Config(BaseModel):
   output_path: str = Field(..., description="Directory to save trained models and outputs", example="./output")
 
 current_config = Config(
+ protected_namespaces = (),
   data_path="",
   model_size="small",
   image_size=224,

@@ -23,7 +23,7 @@ const App: React.FC = () => {
         data_path: "",
         model_size: "small",
         image_size: 224,
-        transform: null,
+        transform: "null",   // transforms not handled yet so set to null
         num_classes: 2,
         epochs: 1,
         batch_size: 32,
@@ -51,6 +51,7 @@ const App: React.FC = () => {
             setConfig(newConfig);
             setStatus("Configuration updated successfully.");
         } catch (error) {
+            // console.log(error)
             setStatus(`Error: ${error}`);
         }
     };
