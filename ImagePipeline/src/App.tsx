@@ -129,24 +129,25 @@ const App: React.FC = () => {
                 </label>
 
                 <label>
-                Or select directory:
+                    Or select directory:
                     <input
                         type="file"
-                        // @ts-ignore
                         webkitdirectory="true"
                         onChange={(e) => {
                             const files = e.target.files;
                             if (files && files.length > 0) {
                                 const directoryPath = files[0].webkitRelativePath.split("/")[0];
+                                const fullPath = e.target.value; // Capture full path
                                 setConfig((prevConfig) => ({
                                     ...prevConfig,
-                                    data_path: directoryPath,
+                                    data_path: fullPath, // Pass the full path to backend
                                 }));
-                                setStatus(`Directory selected: ${directoryPath}`);
+                                setStatus(`Directory selected: ${fullPath}`);
                             }
                         }}
                     />
                 </label>
+
 
 
                 <label>

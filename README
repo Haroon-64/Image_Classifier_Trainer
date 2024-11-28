@@ -7,5 +7,6 @@ these can be used in ui then
 
 ImagePipeline has the react + TS UI, resolve dependencies by npm install. 
 then run using npm run dev.
+- need to fix handling path load, model load and build to be able to also choose size 
 
 flutter ui doesn't work yet
