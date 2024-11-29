@@ -31,6 +31,7 @@ app.add_middleware(
 )
 
 class Config(BaseModel):
+  protected_namespaces = (),
   data_path: str = Field(..., description="Path to the dataset folder", example="./data/images")
   model_size: str = Field(..., description="Model size: 'small', 'medium', 'large', etc.", example="small")
   image_size: int = Field(..., description="Size of the input images (square dimensions)", example=224)
@@ -70,6 +71,13 @@ def get_config():
 
 @app.post("/config")
 async def update_config(config: Config):
+    """
+    Update the current configuration with the provided values.
+    Args:
+        config (Config): The new configuration values.
+    Returns:
+        dict: A message indicating the status of the configuration update.
+    """
     global current_config
     if not os.path.exists(config.data_path):
         print(f"Invalid data path: {config.data_path}")
@@ -83,6 +91,10 @@ async def update_config(config: Config):
 
 @app.post("/data")
 def load_data():
+  """
+  Load the dataset from the specified data path and return metadata.
+  """
+
   global current_config, current_dataloader
   print(f"Loading data from path: {current_config.data_path}")
   # Check if the data path exists
@@ -115,6 +127,13 @@ def load_data():
 
 @app.post("/model")
 def build_model(pretr: bool = True):
+  """
+  Build a ResNet model based on the specified model size.
+  Args:
+    pretr (bool): Whether to load pretrained weights for the model.
+  Returns:
+    dict: A dictionary containing the status of the model building process. If an error occurs, it returns an error message.
+  """
   global current_model, current_config
 
   model_map = {
@@ -170,7 +189,7 @@ def load_model():
 
   if current_config.model_size in model_map:
     model_class = model_map[current_config.model_size]
-    current_config.model = model_class(pretrained=False)  # Do not load pretrained weights
+    current_model = model_class(pretrained=False)  # Do not load pretrained weights
     current_config.model.load_state_dict(torch.load(model_path))
     current_config.model.eval()  # Set model to evaluation mode
     return {"message": "Model loaded successfully"}
@@ -178,8 +197,17 @@ def load_model():
     return {"error": "Invalid model size"}
 
 @app.post("/train")
+
 def train(background_tasks: BackgroundTasks):
-  
+  """
+  Endpoint to start the training process.
+  This function initiates the training of a machine learning model using the current configuration, model, and dataloader.
+  It runs the training loop for a specified number of epochs and updates the training status accordingly.
+  Args:
+    background_tasks (BackgroundTasks): FastAPI BackgroundTasks instance to handle background tasks.
+  Returns:
+    dict: A dictionary containing the status of the training process. If an error occurs, it returns an error message.
+  """
   global current_model, current_dataloader, current_config, training_status, current_epoch
   print(f"Starting training with config: {current_config}")
   if current_model is None:
@@ -198,8 +226,8 @@ def train(background_tasks: BackgroundTasks):
 
   training_status = "Training in progress"
   try:
-    current_epoch += 1 
     for epoch in range(current_config.epochs):
+      current_epoch += 1 
       print(f"Training epoch {epoch}/{current_config.epochs}...")
       background_tasks.add_task(epoch, current_config.epochs)
       epoch_loss = 0.0
@@ -227,7 +255,7 @@ def train(background_tasks: BackgroundTasks):
 async def get_progress():
     
     print(f"Progress request: Epoch {current_epoch}/{current_config.epochs}, Status: {training_status}")
-    return {"epoch": current_epoch, "total_epochs": current_config.epochs}
+    return {"epoch": current_epoch, "total_epochs": current_config.epochs, "status": training_status}
 
 
 @app.get("/status")
@@ -239,7 +267,7 @@ def status():
 def generate_saliency(image_path: str, target_class: int = 0):
   global current_config
 
-  if current_config.model is None:
+  if current_model is None:
     return {"error": "Model not built yet"}
   
   if not os.path.exists(image_path):
@@ -279,9 +307,9 @@ def inference(image_path: str):
     return {"error": "Model not built or loaded"}
 
   # Ensure the model is in evaluation mode
-  current_config.model.eval()
+  current_model.eval()
   device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-  current_config.model = current_config.model.to(device)
+  current_model = current_model.to(device)
 
   try:
     # Load and preprocess the image
@@ -294,7 +322,7 @@ def inference(image_path: str):
 
     # Perform inference
     with torch.no_grad():
-      outputs = current_config.model(input_image)
+      outputs = current_model(input_image)
       _, predicted_class = outputs.max(1)
     
     return {"predicted_class": predicted_class.item()}
