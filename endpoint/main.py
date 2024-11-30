@@ -4,11 +4,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 import os
 from torchvision import transforms
+import torchvision
 from torchvision.datasets import ImageFolder
 from torch.utils.data import DataLoader
+import torch.nn as nn
 
-# import torch.nn as nn
 from torchvision.models import resnet18, resnet34, resnet50, resnet101, resnet152
+from torchvision.models import ResNet18_Weights, ResNet34_Weights, ResNet50_Weights, ResNet101_Weights, ResNet152_Weights
+
 
 import torch
 from torch.optim import Adam
@@ -31,7 +34,7 @@ app.add_middleware(
 )
 
 class Config(BaseModel):
-  protected_namespaces = (),
+  
   data_path: str = Field(..., description="Path to the dataset folder", example="./data/images")
   model_size: str = Field(..., description="Model size: 'small', 'medium', 'large', etc.", example="small")
   image_size: int = Field(..., description="Size of the input images (square dimensions)", example=224)
@@ -43,7 +46,7 @@ class Config(BaseModel):
   output_path: str = Field(..., description="Directory to save trained models and outputs", example="./output")
 
 current_config = Config(
- protected_namespaces = (),
+ 
   data_path="",
   model_size="small",
   image_size=224,
@@ -125,31 +128,61 @@ def load_data():
   except Exception as e:
     return {"error": str(e)}
 
+
 @app.post("/model")
 def build_model(pretr: bool = True):
-  """
-  Build a ResNet model based on the specified model size.
-  Args:
-    pretr (bool): Whether to load pretrained weights for the model.
-  Returns:
-    dict: A dictionary containing the status of the model building process. If an error occurs, it returns an error message.
-  """
-  global current_model, current_config
+    """
+    Build a ResNet model based on the specified model size.
+    """
+    global current_model, current_config
 
-  model_map = {
-    "small": resnet18,
-    "medium": resnet34,
-    "large": resnet50,
-    "xlarge": resnet101,
-    "xxlarge": resnet152,
-  }
+    # Mapping model sizes to ResNet classes
+    model_map = {
+        "small": resnet18,
+        "medium": resnet34,
+        "large": resnet50,
+        "xlarge": resnet101,
+        "xxlarge": resnet152,
+    }
 
-  if current_config.model_size in model_map:
-    model_class = model_map[current_config.model_size]
-    current_model = model_class(pretrained=pretr)
-    return {"message": f"Model '{current_config.model_size}' built successfully"}
-  else:
-    return {"error": "Invalid model size"}
+    # Ensure the model size is valid
+    if current_config.model_size not in model_map:
+        error_message = f"Invalid model size: {current_config.model_size}"
+        print(error_message)
+        return {"error": error_message}
+
+    try:
+        # Select the appropriate model class and load weights
+        model_class = model_map[current_config.model_size]
+        weights = None
+        if pretr:
+          weights_map = {
+              "small": ResNet18_Weights.IMAGENET1K_V1,
+              "medium": ResNet34_Weights.IMAGENET1K_V1,
+              "large": ResNet50_Weights.IMAGENET1K_V1,
+              "xlarge": ResNet101_Weights.IMAGENET1K_V1,
+              "xxlarge": ResNet152_Weights.IMAGENET1K_V1,
+          }
+          weights = weights_map.get(current_config.model_size, None)
+
+
+        # Initialize the model
+        current_model = model_class(weights=weights)
+
+        # Adjust the final layer to match the number of classes
+        current_model.fc = torch.nn.Linear(current_model.fc.in_features, current_config.num_classes)
+
+        # Move the model to the selected device
+        current_model = current_model.to(device)
+
+        print(f"Model '{current_config.model_size}' built successfully.")
+        return {"message": f"Model '{current_config.model_size}' built successfully"}
+
+    except Exception as e:
+        error_message = f"Failed to build model: {str(e)}"
+        print(error_message)
+        return {"error": error_message}
+
 
   
 @app.post("/model/save")
@@ -189,9 +222,10 @@ def load_model():
 
   if current_config.model_size in model_map:
     model_class = model_map[current_config.model_size]
-    current_model = model_class(pretrained=False)  # Do not load pretrained weights
-    current_config.model.load_state_dict(torch.load(model_path))
-    current_config.model.eval()  # Set model to evaluation mode
+    current_model = model_class(pretrained=False)  # Don't load pre-trained weights here
+    current_model.load_state_dict(torch.load(model_path))
+    current_model.eval()
+
     return {"message": "Model loaded successfully"}
   else:
     return {"error": "Invalid model size"}
@@ -199,57 +233,60 @@ def load_model():
 @app.post("/train")
 
 def train(background_tasks: BackgroundTasks):
-  """
-  Endpoint to start the training process.
-  This function initiates the training of a machine learning model using the current configuration, model, and dataloader.
-  It runs the training loop for a specified number of epochs and updates the training status accordingly.
-  Args:
-    background_tasks (BackgroundTasks): FastAPI BackgroundTasks instance to handle background tasks.
-  Returns:
-    dict: A dictionary containing the status of the training process. If an error occurs, it returns an error message.
-  """
-  global current_model, current_dataloader, current_config, training_status, current_epoch
-  print(f"Starting training with config: {current_config}")
-  if current_model is None:
-    training_status = "Error: Model not built"
-    return {"error": training_status}
+    """
+    Endpoint to start the training process.
+    This function initiates the training of a machine learning model using the current configuration, model, and dataloader.
+    It runs the training loop for a specified number of epochs and updates the training status accordingly.
+    Args:
+      background_tasks (BackgroundTasks): FastAPI BackgroundTasks instance to handle background tasks.
+    Returns:
+      dict: A dictionary containing the status of the training process. If an error occurs, it returns an error message.
+    """
+    global current_model, current_dataloader, current_config, training_status, current_epoch
 
-  if current_dataloader is None:
-    training_status = "Error: DataLoader not initialized"
-    return {"error": training_status}
+    if current_model is None:
+        training_status = "Error: Model not built"
+        return {"error": training_status}
 
-  device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-  current_model = current_model.to(device)
+    if current_dataloader is None:
+        training_status = "Error: DataLoader not initialized"
+        return {"error": training_status}
 
-  criterion = CrossEntropyLoss()
-  optimizer = Adam(current_model.parameters(), lr=current_config.learning_rate)
+    # Move model to device
+    current_model = current_model.to(device)
 
-  training_status = "Training in progress"
-  try:
-    for epoch in range(current_config.epochs):
-      current_epoch += 1 
-      print(f"Training epoch {epoch}/{current_config.epochs}...")
-      background_tasks.add_task(epoch, current_config.epochs)
-      epoch_loss = 0.0
-      for i, (images, labels) in enumerate(current_dataloader):
-        images, labels = images.to(device), labels.to(device)
-        optimizer.zero_grad()
-        outputs = current_model(images)
-        loss = criterion(outputs, labels)
-        loss.backward()
-        optimizer.step()
-        epoch_loss += loss.item()
-      print(f"Completed epoch {epoch}/{current_config.epochs}.")
-      avg_loss = epoch_loss / len(current_dataloader)
-      print(f"Epoch {epoch+1}/{current_config.epochs}, Loss: {avg_loss}")
-    
-    training_status = "Training complete"
-    print(f"Training complete. Model trained with config: {current_config}")
-  except Exception as e:
-    training_status = f"Error during training: {str(e)}"
-    return {"error": training_status}
+    # Set loss and optimizer
+    criterion = CrossEntropyLoss()
+    optimizer = Adam(current_model.parameters(), lr=current_config.learning_rate)
 
-  return {"message": "Training complete"}
+    training_status = "Training in progress"
+    try:
+        for epoch in range(current_config.epochs):
+            current_epoch = epoch + 1
+            epoch_loss = 0.0
+            for images, labels in current_dataloader:
+                images, labels = images.to(device), labels.to(device)
+
+                # Forward pass
+                optimizer.zero_grad()
+                outputs = current_model(images)
+                loss = criterion(outputs, labels)
+
+                # Backward pass and optimization
+                loss.backward()
+                optimizer.step()
+
+                epoch_loss += loss.item()
+
+            avg_loss = epoch_loss / len(current_dataloader)
+            print(f"Epoch {current_epoch}/{current_config.epochs}, Loss: {avg_loss}")
+
+        training_status = "Training complete"
+    except Exception as e:
+        training_status = f"Error during training: {str(e)}"
+        return {"error": training_status}
+
+    return {"message": "Training complete"}
 
 @app.get("/train/progress")
 async def get_progress():
