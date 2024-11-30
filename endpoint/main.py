@@ -31,7 +31,6 @@ app.add_middleware(
 )
 
 class Config(BaseModel):
-  protected_namespaces = (),
   data_path: str = Field(..., description="Path to the dataset folder", example="./data/images")
   model_size: str = Field(..., description="Model size: 'small', 'medium', 'large', etc.", example="small")
   image_size: int = Field(..., description="Size of the input images (square dimensions)", example=224)
@@ -43,7 +42,6 @@ class Config(BaseModel):
   output_path: str = Field(..., description="Directory to save trained models and outputs", example="./output")
 
 current_config = Config(
- protected_namespaces = (),
   data_path="",
   model_size="small",
   image_size=224,
