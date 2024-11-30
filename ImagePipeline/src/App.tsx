@@ -102,6 +102,22 @@ const App: React.FC = () => {
       setStatus("Error starting training. Check backend logs for details.");
     }
   };
+
+  const buildModel = async (pretrained: boolean = true): Promise<void> => {
+    try {
+      const response = await axios.post<{ message: string }>("http://127.0.0.1:8000/model", { pretr: pretrained });
+      setStatus(response.data.message || "Model built successfully.");
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response) {
+        console.error("Error building model:", error.response.data);
+        setStatus(`Error: ${error.response.data.error || error.message}`);
+      } else {
+        console.error("Unexpected error:", error);
+        setStatus("An unexpected error occurred.");
+      }
+    }
+  };
+  
   
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -258,6 +274,8 @@ const App: React.FC = () => {
 
       <div>
         <button onClick={loadData}>Load Data</button>
+        <button onClick={() => buildModel(true)}>Build Pretrained Model</button>
+        <button onClick={() => buildModel(false)}>Build Non-Pretrained Model</button>
         <button onClick={startTraining}>Start Training</button>
 
         <div>

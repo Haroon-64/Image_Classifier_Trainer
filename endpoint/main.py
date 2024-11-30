@@ -34,7 +34,6 @@ app.add_middleware(
 )
 
 class Config(BaseModel):
-  protected_namespaces = (),
   data_path: str = Field(..., description="Path to the dataset folder", example="./data/images")
   model_size: str = Field(..., description="Model size: 'small', 'medium', 'large', etc.", example="small")
   image_size: int = Field(..., description="Size of the input images (square dimensions)", example=224)
@@ -46,8 +45,7 @@ class Config(BaseModel):
   output_path: str = Field(..., description="Directory to save trained models and outputs", example="./output")
 
 current_config = Config(
- protected_namespaces = (),
-  data_path="",
+  data_path=r"",
   model_size="small",
   image_size=224,
   num_classes=2,
@@ -133,7 +131,9 @@ def load_data():
 def build_model(pretr: bool = True):
     """
     Build a ResNet model based on the specified model size.
+    
     """
+    print("harron was here")
     global current_model, current_config
 
     # Mapping model sizes to ResNet classes
@@ -152,6 +152,7 @@ def build_model(pretr: bool = True):
         return {"error": error_message}
 
     try:
+        print("in try build-model")
         # Select the appropriate model class and load weights
         model_class = model_map[current_config.model_size]
         weights = None
@@ -168,6 +169,7 @@ def build_model(pretr: bool = True):
 
         # Initialize the model
         current_model = model_class(weights=weights)
+        print("after current model in build model")
 
         # Adjust the final layer to match the number of classes
         current_model.fc = torch.nn.Linear(current_model.fc.in_features, current_config.num_classes)
@@ -243,8 +245,8 @@ def train(background_tasks: BackgroundTasks):
       dict: A dictionary containing the status of the training process. If an error occurs, it returns an error message.
     """
     global current_model, current_dataloader, current_config, training_status, current_epoch
-
-    if current_model is None:
+    print(current_model,type(current_model))
+    if not current_model:
         training_status = "Error: Model not built"
         return {"error": training_status}
 
