@@ -14,9 +14,10 @@ declare global {
 // Define TypeScript types for the configuration
 interface Config {
   data_path: string;
+  model_name: string;
   model_size: string;
   image_size: number;
-  transform: string ;
+  transform: string;
   num_classes: number;
   epochs: number;
   batch_size: number;
@@ -28,6 +29,7 @@ interface Config {
 const App: React.FC = () => {
   const [config, setConfig] = useState<Config>({
     data_path: "",
+    model_name: "resnet",
     model_size: "small",
     image_size: 224,
     transform: "None",
@@ -105,7 +107,11 @@ const App: React.FC = () => {
 
   const buildModel = async (pretrained: boolean = true): Promise<void> => {
     try {
-      const response = await axios.post<{ message: string }>("http://127.0.0.1:8000/model", { pretr: pretrained });
+      const response = await axios.post<{ message: string }>("http://127.0.0.1:8000/model", {
+        model_name: config.model_name,
+        model_size: config.model_size,
+        pretr: pretrained,
+      });
       setStatus(response.data.message || "Model built successfully.");
     } catch (error: unknown) {
       if (axios.isAxiosError(error) && error.response) {
@@ -117,8 +123,6 @@ const App: React.FC = () => {
       }
     }
   };
-  
-  
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -149,7 +153,7 @@ const App: React.FC = () => {
   const selectFolder = async () => {
     console.log("Selecting folder...");
     if (window.electron?.selectFolder) {
-        console.log("Selecting folder...");
+      console.log("Selecting folder...");
       const folderPath = await window.electron.selectFolder();
       if (folderPath) {
         setConfig((prevConfig) => ({
@@ -180,8 +184,8 @@ const App: React.FC = () => {
             onChange={(e) => {
               console.log("Data Path:", e.target.value);
               setConfig((prevConfig) => ({
-            ...prevConfig,
-            data_path: e.target.value,
+                ...prevConfig,
+                data_path: e.target.value,
               }));
             }}
           />
@@ -190,17 +194,39 @@ const App: React.FC = () => {
         {/* <button onClick={selectFolder}>Select Directory</button> */}
 
         <label>
+          Model Name:
+          <select
+            name="model_name"
+            value={config.model_name}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleInputChange(e)}
+          >
+            <option value="resnet">ResNet</option>
+            <option value="mobilenet">MobileNet</option>
+          </select>
+        </label>
+
+        <label>
           Model Size:
           <select
             name="model_size"
             value={config.model_size}
             onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleInputChange(e)}
           >
-            <option value="small">Small</option>
-            <option value="medium">Medium</option>
-            <option value="large">Large</option>
-            <option value="xlarge">X-Large</option>
-            <option value="xxlarge">XX-Large</option>
+            {config.model_name === "resnet" && (
+              <>
+                <option value="small">Small</option>
+                <option value="medium">Medium</option>
+                <option value="large">Large</option>
+                <option value="xlarge">X-Large</option>
+                <option value="xxlarge">XX-Large</option>
+              </>
+            )}
+            {config.model_name === "mobilenet" && (
+              <>
+                <option value="small">Small</option>
+                <option value="large">Large</option>
+              </>
+            )}
           </select>
         </label>
 

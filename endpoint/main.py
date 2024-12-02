@@ -1,3 +1,4 @@
+from re import M
 from fastapi import BackgroundTasks, FastAPI
 from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,8 +11,9 @@ from torch.utils.data import DataLoader
 import torch.nn as nn
 
 from torchvision.models import resnet18, resnet34, resnet50, resnet101, resnet152
+from torchvision.models import mobilenet_v3_small, mobilenet_v3_large  
 from torchvision.models import ResNet18_Weights, ResNet34_Weights, ResNet50_Weights, ResNet101_Weights, ResNet152_Weights
-
+from torchvision.models import MobileNet_V2_Weights, MobileNet_V3_Large_Weights
 
 import torch
 from torch.optim import Adam
@@ -127,58 +129,69 @@ def load_data():
     return {"error": str(e)}
 
 
+
 @app.post("/model")
-def build_model(pretr: bool = True):
+def build_model(model_name: str = "resnet", model_size: str = "small", pretr: bool = True):
     """
-    Build a ResNet model based on the specified model size.
-    
+    Build a model based on the specified model name and size.
     """
-    print("harron was here")
     global current_model, current_config
 
-    # Mapping model sizes to ResNet classes
+    # Mapping model names and sizes to model classes
     model_map = {
-        "small": resnet18,
-        "medium": resnet34,
-        "large": resnet50,
-        "xlarge": resnet101,
-        "xxlarge": resnet152,
+        "resnet": {
+            "small": resnet18,
+            "medium": resnet34,
+            "large": resnet50,
+            "xlarge": resnet101,
+            "xxlarge": resnet152,
+        },
+        "mobilenet": {
+            "small": mobilenet_v3_small,
+            "large": mobilenet_v3_large,
+        }
     }
 
-    # Ensure the model size is valid
-    if current_config.model_size not in model_map:
-        error_message = f"Invalid model size: {current_config.model_size}"
+    # Ensure the model name and size are valid
+    if model_name not in model_map or model_size not in model_map[model_name]:
+        error_message = f"Invalid model name or size: {model_name} {model_size}"
         print(error_message)
         return {"error": error_message}
 
     try:
-        print("in try build-model")
         # Select the appropriate model class and load weights
-        model_class = model_map[current_config.model_size]
+        model_class = model_map[model_name][model_size]
         weights = None
         if pretr:
-          weights_map = {
-              "small": ResNet18_Weights.IMAGENET1K_V1,
-              "medium": ResNet34_Weights.IMAGENET1K_V1,
-              "large": ResNet50_Weights.IMAGENET1K_V1,
-              "xlarge": ResNet101_Weights.IMAGENET1K_V1,
-              "xxlarge": ResNet152_Weights.IMAGENET1K_V1,
-          }
-          weights = weights_map.get(current_config.model_size, None)
-
+            weights_map = {
+                "resnet": {
+                    "small": ResNet18_Weights.IMAGENET1K_V1,
+                    "medium": ResNet34_Weights.IMAGENET1K_V1,
+                    "large": ResNet50_Weights.IMAGENET1K_V1,
+                    "xlarge": ResNet101_Weights.IMAGENET1K_V1,
+                    "xxlarge": ResNet152_Weights.IMAGENET1K_V1,
+                },
+                "mobilenet": {
+                    "small": MobileNet_V2_Weights.IMAGENET1K_V1,
+                    "large": MobileNet_V3_Large_Weights.IMAGENET1K_V1,
+                }
+            }
+            weights = weights_map[model_name].get(model_size, None)
 
         # Initialize the model
         current_model = model_class(weights=weights)
-        print("after current model in build model")
 
         # Adjust the final layer to match the number of classes
-        current_model.fc = torch.nn.Linear(current_model.fc.in_features, current_config.num_classes)
+        if model_name == "resnet":
+            current_model.fc = torch.nn.Linear(current_model.fc.in_features, current_config.num_classes)
+        elif model_name == "mobilenet":
+            current_model.classifier[1] = torch.nn.Linear(current_model.classifier[1].in_features, current_config.num_classes)
 
         # Move the model to the selected device
         current_model = current_model.to(device)
 
-        print(f"Model '{current_config.model_size}' built successfully.")
-        return {"message": f"Model '{current_config.model_size}' built successfully"}
+        print(f"Model '{model_name} {model_size}' built successfully.")
+        return {"message": f"Model '{model_name} {model_size}' built successfully"}
 
     except Exception as e:
         error_message = f"Failed to build model: {str(e)}"
@@ -227,7 +240,7 @@ def load_model():
     current_model = model_class(pretrained=False)  # Don't load pre-trained weights here
     current_model.load_state_dict(torch.load(model_path))
     current_model.eval()
-
+    print(f"Model loaded successfully from: {model_path}, size: {current_config.model_size}, classes: {current_config.num_classes}")
     return {"message": "Model loaded successfully"}
   else:
     return {"error": "Invalid model size"}
@@ -340,7 +353,7 @@ def inference(image_path: str):
   """
   Perform inference on a single image and return the predicted class.
   """
-  global current_config
+  global current_config, current_model
 
   if current_config.model is None:
     return {"error": "Model not built or loaded"}
