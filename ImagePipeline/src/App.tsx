@@ -1,320 +1,192 @@
-import React, { useState } from "react";
-import axios from "axios";
-import "./App.css";
-
-// Extend the Window interface to include the electron property
-declare global {
-  interface Window {
-    electron?: {
-      selectFolder: () => Promise<string>;
-    };
-  }
-}
-
-// Define TypeScript types for the configuration
-interface Config {
-  data_path: string;
-  model_name: string;
-  model_size: string;
-  image_size: number;
-  transform: string;
-  num_classes: number;
-  epochs: number;
-  batch_size: number;
-  learning_rate: number;
-  output_path: string;
-  model?: any;
-}
+import React, { useState } from 'react';
+import axios from 'axios';
+import './App.css';
 
 const App: React.FC = () => {
-  const [config, setConfig] = useState<Config>({
-    data_path: "",
-    model_name: "resnet",
-    model_size: "small",
+  const [config, setConfig] = useState({
+    data_path: '',
+    model_name: 'resnet',
+    modelsize: 'small',
     image_size: 224,
-    transform: "None",
+    transform: 'none',
     num_classes: 2,
     epochs: 1,
     batch_size: 32,
     learning_rate: 0.001,
-    output_path: "./output",
+    output_path: './output',
   });
 
-  const [status, setStatus] = useState<string>("");
-  const [modelTrained, setModelTrained] = useState<boolean>(false);
-  const [trainingProgress, setTrainingProgress] = useState<string>("");
+  const [trainingStatus, setTrainingStatus] = useState('Idle');
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [inferenceResult, setInferenceResult] = useState('');
+  const [saliencyPath, setSaliencyPath] = useState('');
 
-  const pollTrainingProgress = async () => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setConfig((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const updateConfig = async () => {
     try {
-      const response = await axios.get("http://127.0.0.1:8000/train/progress");
-      setTrainingProgress(`Training in progress: Epoch ${response.data.epoch}`);
+      const response = await axios.post('http://127.0.0.1:8000/config', config);
+      alert(response.data.message);
+      await buildModel(); // Call build model after updating the config
     } catch (error) {
-      setStatus(`Error: ${error}`);
+      console.error(error);
     }
   };
 
-  const updateConfig = async (newConfig: Config) => {
+  const buildModel = async () => {
     try {
-      await axios.post("http://127.0.0.1:8000/config", newConfig);
-      setConfig(newConfig);
-      setStatus("Configuration updated successfully.");
+      const response = await axios.post('http://127.0.0.1:8000/model', {
+        model_name: config.model_name,
+        modelsize: config.modelsize,
+        pretr: true, // Assuming we want to use pre-trained weights
+      });
+      alert(response.data.message || 'Model built successfully!');
     } catch (error) {
-      setStatus(`Error: ${error}`);
-    }
-  };
-
-  const loadData = async () => {
-    try {
-      const response = await axios.post("http://127.0.0.1:8000/data");
-      setStatus(response.data.message || "Data loaded successfully.");
-    } catch (error) {
-      setStatus(`Error: ${error}`);
+      console.error(error);
+      alert('Error building model');
     }
   };
 
   const startTraining = async () => {
     try {
-      // Start training
-      const response = await axios.post("http://127.0.0.1:8000/train");
-      setStatus(response.data.message || "Training started.");
-      
-      // Poll progress
+      await axios.post('http://127.0.0.1:8000/train');
+      setTrainingStatus('Training in progress...');
       const interval = setInterval(async () => {
-        try {
-          const progressResponse = await axios.get("http://127.0.0.1:8000/train/progress");
-          const { epoch, total_epochs, status } = progressResponse.data;
-          
-          // Update progress
-          setStatus(`Epoch ${epoch}/${total_epochs}: ${status}`);
-          
-          // Stop polling when training is complete
-          if (epoch >= total_epochs || status.includes("complete")) {
-            clearInterval(interval);
-            setModelTrained(true);
-            setStatus("Training completed.");
-          }
-        } catch (pollError) {
-          console.error("Error fetching training progress:", pollError);
-          setStatus("Error fetching training progress.");
-          clearInterval(interval);
-        }
-      }, 1000);
+        const { data } = await axios.get('http://127.0.0.1:8000/train/progress');
+        setTrainingStatus(`${data.status} (Epoch ${data.epoch}/${data.total_epochs})`);
+        if (data.status === 'Training complete') clearInterval(interval);
+      }, 5000);
     } catch (error) {
-      console.error("Error starting training:", error);
-      setStatus("Error starting training. Check backend logs for details.");
+      console.error(error);
+      alert('Error starting training');
     }
   };
 
-  const buildModel = async (pretrained: boolean = true): Promise<void> => {
+  const loadData = async () => {
     try {
-      const response = await axios.post<{ message: string }>("http://127.0.0.1:8000/model", {
-        model_name: config.model_name,
-        model_size: config.model_size,
-        pretr: pretrained,
+      const response = await axios.post('http://127.0.0.1:8000/data', {
+        data_path: config.data_path,
+        transform: config.transform,
       });
-      setStatus(response.data.message || "Model built successfully.");
-    } catch (error: unknown) {
-      if (axios.isAxiosError(error) && error.response) {
-        console.error("Error building model:", error.response.data);
-        setStatus(`Error: ${error.response.data.error || error.message}`);
-      } else {
-        console.error("Unexpected error:", error);
-        setStatus("An unexpected error occurred.");
-      }
-    }
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setConfig((prevConfig) => ({
-      ...prevConfig,
-      [name]: value,
-    }));
-  };
-
-  const saveModel = async () => {
-    try {
-      const response = await axios.post("http://127.0.0.1:8000/model/save");
-      setStatus(response.data.message || "Model saved successfully.");
+      alert(response.data.message || 'Data loaded successfully!');
     } catch (error) {
-      setStatus(`Error: ${error}`);
+      console.error(error);
+      alert('Error loading data');
     }
   };
 
   const loadModel = async () => {
     try {
-      const response = await axios.post("http://127.0.0.1:8000/model/load");
-      setStatus(response.data.message || "Model loaded successfully.");
+      const response = await axios.post('http://127.0.0.1:8000/model/load', {
+        output_path: config.output_path,
+      });
+      alert(response.data.message || 'Model loaded successfully!');
     } catch (error) {
-      setStatus(`Error: ${error}`);
+      console.error(error);
+      alert('Error loading model');
     }
   };
 
-  const selectFolder = async () => {
-    console.log("Selecting folder...");
-    if (window.electron?.selectFolder) {
-      console.log("Selecting folder...");
-      const folderPath = await window.electron.selectFolder();
-      if (folderPath) {
-        setConfig((prevConfig) => ({
-          ...prevConfig,
-          data_path: folderPath,
-        }));
-        setStatus(`Folder selected: ${folderPath}`);
-      } else {
-        setStatus("Folder selection canceled.");
-      }
-    } else {
-      setStatus("Folder picker not available.");
+  const saveModel = async () => {
+    try {
+      const response = await axios.post('http://127.0.0.1:8000/model/save', {
+        output_path: config.output_path,
+      });
+      alert(response.data.message || 'Model saved successfully!');
+    } catch (error) {
+      console.error(error);
+      alert('Error saving model');
+    }
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setSelectedImage(e.target.files[0]);
+    }
+  };
+
+  const performInference = async () => {
+    if (!selectedImage) {
+      alert('Please upload an image first.');
+      return;
+    }
+    const formData = new FormData();
+    formData.append('image_path', selectedImage);
+    try {
+      const { data } = await axios.post('http://127.0.0.1:8000/inference', formData);
+      setInferenceResult(`Predicted Class: ${data.predicted_class}`);
+    } catch (error) {
+      console.error(error);
+      alert('Error during inference');
+    }
+  };
+
+  const generateSaliencyMap = async () => {
+    if (!selectedImage) {
+      alert('Please upload an image first.');
+      return;
+    }
+    const formData = new FormData();
+    formData.append('image_path', selectedImage);
+    try {
+      const { data } = await axios.post('http://127.0.0.1:8000/saliency', formData);
+      setSaliencyPath(data.path);
+    } catch (error) {
+      console.error(error);
+      alert('Error generating saliency map');
     }
   };
 
   return (
     <div className="App">
-      <h1>FastAPI Image Classifier UI</h1>
-
-      <div>
-        <h2>Configuration</h2>
-        <label>
-          Data Path:
-          <input
-            type="text"
-            placeholder="Paste or type path here"
-            value={config.data_path}
-            onChange={(e) => {
-              console.log("Data Path:", e.target.value);
-              setConfig((prevConfig) => ({
-                ...prevConfig,
-                data_path: e.target.value,
-              }));
-            }}
-          />
-        </label>
-
-        {/* <button onClick={selectFolder}>Select Directory</button> */}
-
-        <label>
-          Model Name:
-          <select
-            name="model_name"
-            value={config.model_name}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleInputChange(e)}
-          >
+      <div className="left-panel">
+        <h2>Model Configuration</h2>
+        <label>Data Path: <input name="data_path" value={config.data_path} onChange={handleInputChange} /></label>
+        <label>Model Name:
+          <select name="model_name" value={config.model_name} onChange={handleInputChange}>
             <option value="resnet">ResNet</option>
             <option value="mobilenet">MobileNet</option>
           </select>
         </label>
-
-        <label>
-          Model Size:
-          <select
-            name="model_size"
-            value={config.model_size}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleInputChange(e)}
-          >
-            {config.model_name === "resnet" && (
-              <>
-                <option value="small">Small</option>
-                <option value="medium">Medium</option>
-                <option value="large">Large</option>
-                <option value="xlarge">X-Large</option>
-                <option value="xxlarge">XX-Large</option>
-              </>
-            )}
-            {config.model_name === "mobilenet" && (
-              <>
-                <option value="small">Small</option>
-                <option value="large">Large</option>
-              </>
-            )}
+        <label>Model Size: 
+          <select name="modelsize" value={config.modelsize} onChange={handleInputChange}>
+            <option value="small">Small</option>
+            <option value="medium">Medium</option>
+            <option value="large">Large</option>
+            <option value="xlarge">X-Large</option>
+            <option value="xxlarge">XX-Large</option>
           </select>
         </label>
-
-        <label>
-          Image Size:
-          <input
-            type="number"
-            name="image_size"
-            value={config.image_size}
-            onChange={handleInputChange}
-          />
+        <label>Image Size: <input name="image_size" type="number" value={config.image_size} onChange={handleInputChange} /></label>
+        <label>Transform: 
+          <select name="transform" value={config.transform} onChange={handleInputChange}>
+            <option value="none">None</option>
+            <option value="augmentation">Augmentation</option>
+          </select>
         </label>
-
-        <label>
-          Number of Classes:
-          <input
-            type="number"
-            name="num_classes"
-            value={config.num_classes}
-            onChange={handleInputChange}
-          />
-        </label>
-
-        <label>
-          Epochs:
-          <input
-            type="number"
-            name="epochs"
-            value={config.epochs}
-            onChange={handleInputChange}
-          />
-        </label>
-
-        <label>
-          Batch Size:
-          <input
-            type="number"
-            name="batch_size"
-            value={config.batch_size}
-            onChange={handleInputChange}
-          />
-        </label>
-
-        <label>
-          Learning Rate:
-          <input
-            type="number"
-            name="learning_rate"
-            value={config.learning_rate}
-            onChange={handleInputChange}
-          />
-        </label>
-
-        <label>
-          Output Path:
-          <input
-            type="text"
-            name="output_path"
-            value={config.output_path}
-            onChange={handleInputChange}
-          />
-        </label>
-
-        <button onClick={() => updateConfig(config)}>Update Config</button>
-      </div>
-
-      <div>
-        <h2>Status</h2>
-        <p>{status}</p>
-      </div>
-
-      <div>
+        <label>Number of Classes: <input name="num_classes" type="number" value={config.num_classes} onChange={handleInputChange} /></label>
+        <label>Epochs: <input name="epochs" type="number" value={config.epochs} onChange={handleInputChange} /></label>
+        <label>Batch Size: <input name="batch_size" type="number" value={config.batch_size} onChange={handleInputChange} /></label>
+        <label>Learning Rate: <input name="learning_rate" type="number" value={config.learning_rate} step="0.0001" onChange={handleInputChange} /></label>
+        <button onClick={updateConfig}>Update Config & Build Model</button>
         <button onClick={loadData}>Load Data</button>
-        <button onClick={() => buildModel(true)}>Build Pretrained Model</button>
-        <button onClick={() => buildModel(false)}>Build Non-Pretrained Model</button>
+        {/* <button onClick={loadModel}>Load Model</button> */}
+        <button onClick={saveModel}>Save Model</button>
         <button onClick={startTraining}>Start Training</button>
-
-        <div>
-          <h2>Training Progress</h2>
-          <p>{trainingProgress}</p>
-        </div>
+        <p>{trainingStatus}</p>
       </div>
-      {modelTrained && (
-        <div>
-          <button onClick={saveModel}>Save Model</button>
-          <button onClick={loadModel}>Load Model</button>
-        </div>
-      )}
+
+      <div className="right-panel">
+        <h2>Inference and Saliency</h2>
+        <input type="file" onChange={handleImageUpload} />
+        <button onClick={performInference}>Perform Inference</button>
+        <p>{inferenceResult}</p>
+        <button onClick={generateSaliencyMap}>Generate Saliency Map</button>
+        {saliencyPath && <img src={`http://127.0.0.1:8000/${saliencyPath}`} alt="Saliency Map" />}
+      </div>
     </div>
   );
 };

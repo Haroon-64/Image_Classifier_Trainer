@@ -37,7 +37,7 @@ app.add_middleware(
 
 class Config(BaseModel):
   data_path: str = Field(..., description="Path to the dataset folder", example="./data/images")
-  model_size: str = Field(..., description="Model size: 'small', 'medium', 'large', etc.", example="small")
+  modelsize: str = Field(..., description="Model size: 'small', 'medium', 'large', etc.", example="small")
   image_size: int = Field(..., description="Size of the input images (square dimensions)", example=224)
   transform: str = Field(None, description="Data augmentation strategy: 'augmentation' or None", example="augmentation")
   num_classes: int = Field(..., description="Number of output classes", example=10)
@@ -48,7 +48,7 @@ class Config(BaseModel):
 
 current_config = Config(
   data_path=r"",
-  model_size="small",
+  modelsize="small",
   image_size=224,
   num_classes=2,
   epochs=1,
@@ -131,7 +131,7 @@ def load_data():
 
 
 @app.post("/model")
-def build_model(model_name: str = "resnet", model_size: str = "small", pretr: bool = True):
+def build_model(model_name: str = "resnet", modelsize: str = "small", pretr: bool = True):
     """
     Build a model based on the specified model name and size.
     """
@@ -153,14 +153,14 @@ def build_model(model_name: str = "resnet", model_size: str = "small", pretr: bo
     }
 
     # Ensure the model name and size are valid
-    if model_name not in model_map or model_size not in model_map[model_name]:
-        error_message = f"Invalid model name or size: {model_name} {model_size}"
+    if model_name not in model_map or modelsize not in model_map[model_name]:
+        error_message = f"Invalid model name or size: {model_name} {modelsize}"
         print(error_message)
         return {"error": error_message}
 
     try:
         # Select the appropriate model class and load weights
-        model_class = model_map[model_name][model_size]
+        model_class = model_map[model_name][modelsize]
         weights = None
         if pretr:
             weights_map = {
@@ -176,7 +176,7 @@ def build_model(model_name: str = "resnet", model_size: str = "small", pretr: bo
                     "large": MobileNet_V3_Large_Weights.IMAGENET1K_V1,
                 }
             }
-            weights = weights_map[model_name].get(model_size, None)
+            weights = weights_map[model_name].get(modelsize, None)
 
         # Initialize the model
         current_model = model_class(weights=weights)
@@ -190,8 +190,8 @@ def build_model(model_name: str = "resnet", model_size: str = "small", pretr: bo
         # Move the model to the selected device
         current_model = current_model.to(device)
 
-        print(f"Model '{model_name} {model_size}' built successfully.")
-        return {"message": f"Model '{model_name} {model_size}' built successfully"}
+        print(f"Model '{model_name} {modelsize}' built successfully.")
+        return {"message": f"Model '{model_name} {modelsize}' built successfully"}
 
     except Exception as e:
         error_message = f"Failed to build model: {str(e)}"
@@ -235,12 +235,12 @@ def load_model():
     "xxlarge": resnet152,
   }
 
-  if current_config.model_size in model_map:
-    model_class = model_map[current_config.model_size]
+  if current_config.modelsize in model_map:
+    model_class = model_map[current_config.modelsize]
     current_model = model_class(pretrained=False)  # Don't load pre-trained weights here
     current_model.load_state_dict(torch.load(model_path))
     current_model.eval()
-    print(f"Model loaded successfully from: {model_path}, size: {current_config.model_size}, classes: {current_config.num_classes}")
+    print(f"Model loaded successfully from: {model_path}, size: {current_config.modelsize}, classes: {current_config.num_classes}")
     return {"message": "Model loaded successfully"}
   else:
     return {"error": "Invalid model size"}
