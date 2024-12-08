@@ -14,12 +14,21 @@ const App: React.FC = () => {
     batch_size: 32,
     learning_rate: 0.001,
     output_path: './output',
+    model_path: '',
   });
 
   const [trainingStatus, setTrainingStatus] = useState('Idle');
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [inferenceResult, setInferenceResult] = useState('');
   const [saliencyPath, setSaliencyPath] = useState('');
+  const [modelLoaded, setModelLoaded] = useState(false);
+  
+  const [notification, setNotification] = useState<string | null>(null);
+
+  const showNotification = (message: string) => {
+    setNotification(message);
+    setTimeout(() => setNotification(null), 5000); // Hide notification after 5 seconds
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -29,10 +38,11 @@ const App: React.FC = () => {
   const updateConfig = async () => {
     try {
       const response = await axios.post('http://127.0.0.1:8000/config', config);
-      alert(response.data.message);
-      await buildModel(); // Call build model after updating the config
+      showNotification(response.data.message);
+      await buildModel(); 
     } catch (error) {
       console.error(error);
+      showNotification('Error updating config');
     }
   };
 
@@ -41,12 +51,25 @@ const App: React.FC = () => {
       const response = await axios.post('http://127.0.0.1:8000/model', {
         model_name: config.model_name,
         modelsize: config.modelsize,
-        pretr: true, // Assuming we want to use pre-trained weights
+        pretr: true,
       });
-      alert(response.data.message || 'Model built successfully!');
+      showNotification(response.data.message || 'Model built successfully!');
     } catch (error) {
       console.error(error);
-      alert('Error building model');
+      showNotification('Error building model');
+    }
+  };
+
+  const loadModel = async () => {
+    try {
+      const response = await axios.post('http://127.0.0.1:8000/model/load', {
+        model_path: config.model_path || '',
+      });
+      showNotification(response.data.message || 'Model loaded successfully!');
+      setModelLoaded(true); 
+    } catch (error) {
+      console.error(error);
+      showNotification('Error loading model');
     }
   };
 
@@ -61,7 +84,7 @@ const App: React.FC = () => {
       }, 5000);
     } catch (error) {
       console.error(error);
-      alert('Error starting training');
+      showNotification('Error starting training');
     }
   };
 
@@ -71,22 +94,10 @@ const App: React.FC = () => {
         data_path: config.data_path,
         transform: config.transform,
       });
-      alert(response.data.message || 'Data loaded successfully!');
+      showNotification(response.data.message || 'Data loaded successfully!');
     } catch (error) {
       console.error(error);
-      alert('Error loading data');
-    }
-  };
-
-  const loadModel = async () => {
-    try {
-      const response = await axios.post('http://127.0.0.1:8000/model/load', {
-        output_path: config.output_path,
-      });
-      alert(response.data.message || 'Model loaded successfully!');
-    } catch (error) {
-      console.error(error);
-      alert('Error loading model');
+      showNotification('Error loading data');
     }
   };
 
@@ -95,10 +106,10 @@ const App: React.FC = () => {
       const response = await axios.post('http://127.0.0.1:8000/model/save', {
         output_path: config.output_path,
       });
-      alert(response.data.message || 'Model saved successfully!');
+      showNotification(response.data.message || 'Model saved successfully!');
     } catch (error) {
       console.error(error);
-      alert('Error saving model');
+      showNotification('Error saving model');
     }
   };
 
@@ -110,9 +121,15 @@ const App: React.FC = () => {
 
   const performInference = async () => {
     if (!selectedImage) {
-      alert('Please upload an image first.');
+      showNotification('Please upload an image first.');
       return;
     }
+
+    if (!modelLoaded) {
+      showNotification('Please load a model first.');
+      return;
+    }
+
     const formData = new FormData();
     formData.append('image_path', selectedImage);
     try {
@@ -120,15 +137,21 @@ const App: React.FC = () => {
       setInferenceResult(`Predicted Class: ${data.predicted_class}`);
     } catch (error) {
       console.error(error);
-      alert('Error during inference');
+      showNotification('Error during inference');
     }
   };
 
   const generateSaliencyMap = async () => {
     if (!selectedImage) {
-      alert('Please upload an image first.');
+      showNotification('Please upload an image first.');
       return;
     }
+
+    if (!modelLoaded) {
+      showNotification('Please load a model first.');
+      return;
+    }
+
     const formData = new FormData();
     formData.append('image_path', selectedImage);
     try {
@@ -136,12 +159,14 @@ const App: React.FC = () => {
       setSaliencyPath(data.path);
     } catch (error) {
       console.error(error);
-      alert('Error generating saliency map');
+      showNotification('Error generating saliency map');
     }
   };
 
   return (
     <div className="App">
+      {notification && <div className="notification">{notification}</div>}
+
       <div className="left-panel">
         <h2>Model Configuration</h2>
         <label>Data Path: <input name="data_path" value={config.data_path} onChange={handleInputChange} /></label>
@@ -173,7 +198,7 @@ const App: React.FC = () => {
         <label>Learning Rate: <input name="learning_rate" type="number" value={config.learning_rate} step="0.0001" onChange={handleInputChange} /></label>
         <button onClick={updateConfig}>Update Config & Build Model</button>
         <button onClick={loadData}>Load Data</button>
-        {/* <button onClick={loadModel}>Load Model</button> */}
+        
         <button onClick={saveModel}>Save Model</button>
         <button onClick={startTraining}>Start Training</button>
         <p>{trainingStatus}</p>
@@ -182,6 +207,8 @@ const App: React.FC = () => {
       <div className="right-panel">
         <h2>Inference and Saliency</h2>
         <input type="file" onChange={handleImageUpload} />
+        
+        <button onClick={loadModel}>Load Model for Inference</button> {/* Load Model Button */}
         <button onClick={performInference}>Perform Inference</button>
         <p>{inferenceResult}</p>
         <button onClick={generateSaliencyMap}>Generate Saliency Map</button>
@@ -192,3 +219,29 @@ const App: React.FC = () => {
 };
 
 export default App;
+
+
+
+// import React from "react";
+// import ConfigForm from "./components/ConfigForm.tsx";
+// import DataLoader from "./components/DataLoader.tsx";
+// import ModelBuilder from "./components/ModelBuilder.tsx";
+// import TrainingProgress from "./components/TrainingProgress.tsx";
+// import InferenceSection from "./components/InferenceSection.tsx";
+// import SaliencyViewer from "./components/SaliencyViewer.tsx";
+
+// const App: React.FC = () => {
+//   return (
+//     <div>
+//       <h1>Deep Learning UI</h1>
+//       <ConfigForm />
+//       <DataLoader />
+//       <ModelBuilder />
+//       <TrainingProgress />
+//       <InferenceSection />
+//       <SaliencyViewer />
+//     </div>
+//   );
+// };
+
+// export default App;
