@@ -20,7 +20,7 @@ def load_data(data_path: str,
               transform: str = None,
               BATCHSIZE: int = 32,
               val_size: float = 0.1,  
-              include_val: bool = False):  
+              include_val: bool = False):# -> dict[str, str] | dict[str, DataLoader]:  
     
     if not os.path.exists(data_path):
         return {"error": "Invalid data path"}
@@ -61,10 +61,10 @@ def load_data(data_path: str,
     except Exception as e:
         return {"error": str(e)}    
 
-def build_model(model_name:Literal['resnet', 'mobilenet'], # add more options 
+def build_model(model_name:Literal['resnet', 'mobilenet'], 
                 model_size,
                 num_classes:int,
-                pretrained:bool = True) -> dict[str, str]:
+                pretrained:bool = True):
 
     try:
         model_class = MODEL_MAP[model_name][model_size]
@@ -240,7 +240,7 @@ def inference(image_path: str,
         with torch.no_grad():
             outputs = model(input_image)
             _, predicted_class = outputs.max(1)
-        return {image, predicted_class.item()}
+        return image, predicted_class.item()
     except Exception as e:
         return {"error": f"Inference failed: {str(e)}"}
     
@@ -255,6 +255,8 @@ def generate_saliency(image_path: str,
 
     if not os.path.exists(image_path):
         return {"error": f"Image path '{image_path}' not found"}
+    
+    
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.eval()
@@ -266,11 +268,17 @@ def generate_saliency(image_path: str,
         transforms.Resize((image_size, image_size)),
         transforms.ToTensor(),
     ])
+
     input_image = transform(image).unsqueeze(0).to(device)
 
     try:
         saliency = Saliency(model)
+        
         saliency_map = saliency.attribute(input_image, target=target_class).squeeze().cpu().numpy()
+        if len(saliency_map.shape) > 2:
+            saliency_map = saliency_map.mean(axis=0)
+
+        print(f"Saliency map shape: {saliency_map.shape}")
         if output_path:
             plt.savefig(output_path)
         return plt.imshow(saliency_map, cmap="hot")
