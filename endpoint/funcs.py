@@ -273,15 +273,23 @@ def generate_saliency(image_path: str,
 
     try:
         saliency = Saliency(model)
-        
         saliency_map = saliency.attribute(input_image, target=target_class).squeeze().cpu().numpy()
+
+        # Reduce dimensions if necessary
         if len(saliency_map.shape) > 2:
             saliency_map = saliency_map.mean(axis=0)
 
         print(f"Saliency map shape: {saliency_map.shape}")
+
+
+
+        # Save or return the saliency map
         if output_path:
             plt.savefig(output_path)
-        return plt.imshow(saliency_map, cmap="hot")
+            print(f"Saliency map saved to {output_path}")
+        else:
+            plt.show()
+        return saliency_map
         
     except Exception as e:
         raise {"error": f"Failed to generate saliency map: {str(e)}"}
