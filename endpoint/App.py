@@ -2,8 +2,8 @@ import sys
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                                QHBoxLayout, QPushButton, QLabel, QLineEdit, 
                                QComboBox, QFileDialog, QRadioButton, QGroupBox, 
-                               QFormLayout, QMessageBox)
-from PySide6.QtGui import QPixmap
+                               QFormLayout, QMessageBox, QGraphicsView, QGraphicsScene)
+from PySide6.QtGui import QPixmap, QImage
 from PySide6.QtCore import Qt
 from PIL import ImageQt
 import torch
@@ -84,6 +84,12 @@ class ModelTrainingApp(QMainWindow):
         self.saliency_map_label = QLabel("")
         self.saliency_map_label.setAlignment(Qt.AlignCenter)
         right_layout.addWidget(self.saliency_map_label)
+
+        # Graphics View for Model Graph
+        self.graphics_view = QGraphicsView()
+        self.graphics_scene = QGraphicsScene()
+        self.graphics_view.setScene(self.graphics_scene)
+        right_layout.addWidget(self.graphics_view)
 
         # Combine Panes
         main_layout.addWidget(left_pane, stretch=1)
@@ -189,9 +195,9 @@ class ModelTrainingApp(QMainWindow):
         graph = graph_model(model)
 
         pixmap = QPixmap.fromImage(ImageQt.ImageQt(graph))
-        self.image_label.setPixmap(pixmap.scaled(400, 400, Qt.KeepAspectRatio))
-        self.predicted_label.setText("Model Graph")
-        self.saliency_map_label.clear()
+        self.graphics_scene.clear()
+        self.graphics_scene.addPixmap(pixmap)
+        self.graphics_view.fitInView(self.graphics_scene.itemsBoundingRect(), Qt.KeepAspectRatio)  # add zoom options
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
