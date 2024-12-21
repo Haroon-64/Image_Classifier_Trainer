@@ -78,12 +78,12 @@ class ModelTrainingApp(QMainWindow):
         right_layout.addWidget(self.image_label)
 
         # Predicted label display
-        self.predicted_label = QLabel("Predicted label: None")
+        self.predicted_label = QLabel(" ")
         self.predicted_label.setAlignment(Qt.AlignCenter)
         right_layout.addWidget(self.predicted_label)
 
         # Saliency map display
-        self.saliency_map_label = QLabel("No saliency map generated")
+        self.saliency_map_label = QLabel("")
         self.saliency_map_label.setAlignment(Qt.AlignCenter)
         right_layout.addWidget(self.saliency_map_label)
 
