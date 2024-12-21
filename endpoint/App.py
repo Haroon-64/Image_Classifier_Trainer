@@ -9,7 +9,7 @@ from PIL import ImageQt
 import torch
 from PIL import Image
 import numpy as np
-from funcs import load_data, build_model, train, inference, generate_saliency
+from funcs import load_data, build_model, train, inference, generate_saliency, graph_model
 
 class ModelTrainingApp(QMainWindow):
     def __init__(self):
@@ -33,7 +33,6 @@ class ModelTrainingApp(QMainWindow):
         self.model_size_combobox = QComboBox()
         left_layout.addWidget(self.model_size_combobox)
 
-        # Set initial items based on the default model
         self.update_model_size_options()
         self.model_combobox.currentIndexChanged.connect(self.update_model_size_options)        
 
@@ -44,14 +43,14 @@ class ModelTrainingApp(QMainWindow):
         self.dataset_input = QLineEdit()
         self.dataset_input.setPlaceholderText("Enter dataset path")
         left_layout.addWidget(self.dataset_input)
-        self.browse_button = QPushButton("Browse", self)
+        self.browse_button = QPushButton("Browse Folder", self)
         left_layout.addWidget(self.browse_button)
         self.browse_button.clicked.connect(self.show_dialog)
 
         self.load_model_groupbox = QGroupBox("Model Loading Option")
         load_model_layout = QFormLayout()
-        self.load_pretrained_radio = QRadioButton("Load Pretrained Model")
-        self.load_trained_radio = QRadioButton("Load Model")
+        self.load_pretrained_radio = QRadioButton("Use Pretrained Model")
+        self.load_trained_radio = QRadioButton("Untrained Model")
         self.load_trained_radio.setChecked(True)  
         load_model_layout.addRow(self.load_pretrained_radio)
         load_model_layout.addRow(self.load_trained_radio)
@@ -62,49 +61,47 @@ class ModelTrainingApp(QMainWindow):
         self.train_button.clicked.connect(self.start_training)
         left_layout.addWidget(self.train_button)
 
-        # Right Pane
         right_pane = QWidget()
         right_layout = QVBoxLayout()
         right_pane.setLayout(right_layout)
 
-        # Button for loading an image and running inference
-        self.inference_button = QPushButton("Load Image and Process")
+        self.inference_button = QPushButton("Load Image for inference")
         self.inference_button.clicked.connect(self.load_image_and_process)
         right_layout.addWidget(self.inference_button)
 
-        # Image display
+        self.graph_button = QPushButton("Graph Model")
+        self.graph_button.clicked.connect(self.graph_model)
+        right_layout.addWidget(self.graph_button)
+
         self.image_label = QLabel("No image loaded")
         self.image_label.setAlignment(Qt.AlignCenter)
         right_layout.addWidget(self.image_label)
 
-        # Predicted label display
         self.predicted_label = QLabel(" ")
         self.predicted_label.setAlignment(Qt.AlignCenter)
         right_layout.addWidget(self.predicted_label)
 
-        # Saliency map display
         self.saliency_map_label = QLabel("")
         self.saliency_map_label.setAlignment(Qt.AlignCenter)
         right_layout.addWidget(self.saliency_map_label)
 
-
         # Combine Panes
-        main_layout.addWidget(left_pane)
-        main_layout.addWidget(right_pane)
+        main_layout.addWidget(left_pane, stretch=1)
+        main_layout.addWidget(right_pane, stretch=3)
 
         central_widget = QWidget()
         central_widget.setLayout(main_layout)
         self.setCentralWidget(central_widget)
 
     def update_model_size_options(self):
-            selected_model = self.model_combobox.currentText()
-            
-            if selected_model == "resnet":
-                self.model_size_combobox.clear()  # Clear existing items
-                self.model_size_combobox.addItems(["small", "medium", "large", "xlarge", "xxlarge"])
-            elif selected_model == "mobilenet":
-                self.model_size_combobox.clear()  # Clear existing items
-                self.model_size_combobox.addItems(["small", "large"])
+        selected_model = self.model_combobox.currentText()
+        
+        if selected_model == "resnet":
+            self.model_size_combobox.clear()  
+            self.model_size_combobox.addItems(["small", "medium", "large", "xlarge", "xxlarge"])
+        elif selected_model == "mobilenet":
+            self.model_size_combobox.clear()  
+            self.model_size_combobox.addItems(["small", "large"])
                 
     def show_dialog(self):
         file_path = QFileDialog.getExistingDirectory(self, 'Select Folder')
@@ -181,6 +178,20 @@ class ModelTrainingApp(QMainWindow):
             pixmap = QPixmap.fromImage(ImageQt.ImageQt(saliency_image))
             self.saliency_map_label.setPixmap(pixmap.scaled(400, 400, Qt.KeepAspectRatio))
 
+    def graph_model(self):
+        """
+        Graph the model and display it in the UI.
+        """
+        model_name = self.model_combobox.currentText()
+        model_size = self.model_size_combobox.currentText()
+
+        model = build_model(model_name, model_size, num_classes=1000)
+        graph = graph_model(model)
+
+        pixmap = QPixmap.fromImage(ImageQt.ImageQt(graph))
+        self.image_label.setPixmap(pixmap.scaled(400, 400, Qt.KeepAspectRatio))
+        self.predicted_label.setText("Model Graph")
+        self.saliency_map_label.clear()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
