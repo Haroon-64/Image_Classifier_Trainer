@@ -3,7 +3,7 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                                QHBoxLayout, QPushButton, QLabel, QLineEdit, 
                                QComboBox, QFileDialog, QRadioButton, QGroupBox, 
                                QFormLayout, QMessageBox, QGraphicsView, QGraphicsScene)
-from PySide6.QtGui import QPixmap, QImage
+from PySide6.QtGui import QPixmap
 from PySide6.QtCore import Qt
 from PIL import ImageQt
 import torch
