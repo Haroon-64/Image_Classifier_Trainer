@@ -1,15 +1,17 @@
 import sys
+import torch
+import numpy as np
+from PIL import ImageQt,Image
+
+from funcs import load_data, build_model, train, inference, generate_saliency, graph_model
+
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                                QHBoxLayout, QPushButton, QLabel, QLineEdit, 
                                QComboBox, QFileDialog, QRadioButton, QGroupBox, 
                                QFormLayout, QMessageBox, QGraphicsView, QGraphicsScene)
 from PySide6.QtGui import QPixmap
 from PySide6.QtCore import Qt
-from PIL import ImageQt
-import torch
-from PIL import Image
-import numpy as np
-from funcs import load_data, build_model, train, inference, generate_saliency, graph_model
+
 
 class ModelTrainingApp(QMainWindow):
     def __init__(self):
