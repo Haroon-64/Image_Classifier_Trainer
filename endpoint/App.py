@@ -103,8 +103,8 @@ class ModelTrainingApp(QMainWindow):
     def show_dialog(self):
         file_path = QFileDialog.getExistingDirectory(self, 'Select Folder')
         # trim path to root folder
-        # file_path = Path(file_path).parents[1].__str__()
-        
+        # file_path = str(Path(file_path).parents[1])   # can raise error if path does not have 2 parents
+         
         if file_path:  
             self.dataset_input.setText(file_path)
 
@@ -191,10 +191,7 @@ class ModelTrainingApp(QMainWindow):
             model.load_state_dict(torch.load(model_path))
 
         
-        result = generate_saliency(file_path, model)
-        # if "error" in result:
-        #     print(result["error"])
-        
+        result = generate_saliency(file_path, model)     
             
         plt.imshow(result, cmap="hot")
         plt.show()
