@@ -11,8 +11,9 @@ from torch.optim import Adam
 from torch.nn import CrossEntropyLoss
 from captum.attr import Saliency
 import matplotlib.pyplot as plt
+from torchviz import make_dot
 from PIL import Image
-
+import io
 
 def load_data(data_path: str,
               image_size: int = 224,
@@ -60,6 +61,31 @@ def load_data(data_path: str,
 
     except Exception as e:
         return {"error": str(e)}    
+
+
+def graph_model(model):
+    """
+    Generate the model's graph with layer names and sizes and return it as a PIL image.
+    Args:
+        model: The PyTorch model.
+    Returns:
+        PIL.Image: Image of the model graph.
+    """
+    dummy_input = torch.randn(1, 3, 224, 224)
+
+    # Generate model's computation graph
+    graph = make_dot(model(dummy_input), params=dict(model.named_parameters()))
+    
+    # Convert the graph to a PNG image 
+    img_buffer = io.BytesIO()
+    graph.render(format='png', cleanup=True)  # Render to stdout
+    img_buffer.write(graph.pipe(format='png'))  # Capture PNG image in memory
+    img_buffer.seek(0)  # Rewind to the start of the buffer
+
+    pil_image = Image.open(img_buffer)
+    
+    return pil_image
+
 
 def build_model(model_name:Literal['resnet', 'mobilenet'], 
                 model_size,
@@ -273,15 +299,23 @@ def generate_saliency(image_path: str,
 
     try:
         saliency = Saliency(model)
-        
         saliency_map = saliency.attribute(input_image, target=target_class).squeeze().cpu().numpy()
+
+        # Reduce dimensions if necessary
         if len(saliency_map.shape) > 2:
             saliency_map = saliency_map.mean(axis=0)
 
         print(f"Saliency map shape: {saliency_map.shape}")
+
+
+
+        # Save or return the saliency map
         if output_path:
             plt.savefig(output_path)
-        return plt.imshow(saliency_map, cmap="hot")
+            print(f"Saliency map saved to {output_path}")
+        else:
+            plt.show()
+        return saliency_map
         
     except Exception as e:
         raise {"error": f"Failed to generate saliency map: {str(e)}"}
