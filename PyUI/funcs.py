@@ -74,7 +74,7 @@ def graph_model(model):
     Returns:
         PIL.Image: Image of the model graph.
     """
-    dummy_input = torch.randn(1, 3, 224, 224)
+    dummy_input = torch.randn(1, 3, 224, 224).to(next(model.parameters()).device)
 
     # Generate model's computation graph
     graph = make_dot(model(dummy_input), params=dict(model.named_parameters()))
