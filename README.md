@@ -3,7 +3,7 @@ For Currently Working UI in PySide simply `python PyUI/App.py`
 - Load data and train works
 - inference and saliency maps works
 - model graphing works but doesnt scale well for large models
-- fixes : Need to log status to UI, No Customisable Models yet
+- fixes : Need to log status to UI, No Customisable Models yet, Convert Labels to names
 - issues : Graphing model doesnt work on windows as graphviz isnt pre installed.  install from `https://graphviz.org/download/`
 
 -------------------------------------------------------------------------------------
