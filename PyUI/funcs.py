@@ -35,6 +35,7 @@ def load_data(data_path: str,
     try:
         # Load the full dataset
         full_dataset = ImageFolder(root=data_path, transform=transforms.Compose(transform_list))
+        num_classes = len(full_dataset.classes)
 
         # Split into train and test datasets
         train_size = int((1 - test_size) * len(full_dataset))  
@@ -50,13 +51,15 @@ def load_data(data_path: str,
             return {
                 'train_loader': DataLoader(train_dataset, batch_size=BATCHSIZE, shuffle=True),
                 'test_loader': DataLoader(test_dataset, batch_size=BATCHSIZE, shuffle=False),
-                'val_loader': val_loader
+                'val_loader': val_loader,
+                'num_classes': num_classes
             }
 
         # If no validation is needed, return only train and test loaders
         return {
             'train_loader': DataLoader(train_dataset, batch_size=BATCHSIZE, shuffle=True),
-            'test_loader': DataLoader(test_dataset, batch_size=BATCHSIZE, shuffle=False)
+            'test_loader': DataLoader(test_dataset, batch_size=BATCHSIZE, shuffle=False),
+            'num_classes': num_classes
         }
 
     except Exception as e:
@@ -87,26 +90,42 @@ def graph_model(model):
     return pil_image
 
 
-def build_model(model_name:Literal['resnet', 'mobilenet'], 
-                model_size,
-                num_classes:int,
-                pretrained:bool = True):
-
+def build_model(model_name: Literal['resnet', 'mobilenet'], 
+                model_size: str,
+                num_classes: int,
+                pretrained: bool = True):
     try:
+        # Get the model class and weights
         model_class = MODEL_MAP[model_name][model_size]
-        if pretrained:
-            weights = WEIGHTS_MAP[model_name].get(model_size)
-        else:
-            weights = None
+        weights = WEIGHTS_MAP[model_name].get(model_size) if pretrained else None
         model = model_class(weights=weights)
+
+        # Modify the final layer based on the model
         if model_name == "resnet":
             model.fc = torch.nn.Linear(model.fc.in_features, num_classes)
+
         elif model_name == "mobilenet":
-            model.classifier[1] = torch.nn.Linear(model.classifier[1].in_features, num_classes)
-        model = model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+            if model_size == "small":
+                # For MobileNetV3 Small, replace the classifier 
+                in_features = model.classifier[-1].in_features  # Get input features from the last Linear layer
+                model.classifier = torch.nn.Sequential(
+                    torch.nn.Dropout(0.2),  # Keep dropout layer consistent
+                    torch.nn.Linear(in_features, num_classes)  # Replace final Linear layer
+                )
+            elif model_size == "large":
+                # For MobileNetV3 Large, replace the last Linear layer of the classifier
+                model.classifier[-1] = torch.nn.Linear(1280, num_classes)  # 1280 is the input size for V3 large
+
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model = model.to(device)
+
         return model
     except Exception as e:
-        return {"error": str(e)}
+        print(f"Error during model building: {e}")
+        raise
+
+
+     
     
 def validate(model, dataloader, criterion):
     """

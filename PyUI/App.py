@@ -45,7 +45,7 @@ class ModelTrainingApp(QMainWindow):
         self.dataset_input = QLineEdit()
         self.dataset_input.setPlaceholderText("Enter dataset path")
         left_layout.addWidget(self.dataset_input)
-        self.browse_button = QPushButton("Browse Folder", self)
+        self.browse_button = QPushButton("Browse Image Folder", self)
         left_layout.addWidget(self.browse_button)
         self.browse_button.clicked.connect(self.show_dialog)
 
@@ -127,11 +127,13 @@ class ModelTrainingApp(QMainWindow):
             if "error" in data:
                 print(data["error"])
                 return
+            
 
             train_loader = data['train_loader']
             val_loader = data.get('val_loader')
+            num_classes = data['num_classes']
 
-            model = build_model(model_name, model_size, num_classes=1000)
+            model = build_model(model_name, model_size, num_classes=num_classes) # need to autocorrect the num_classes
             trained_model = train(model, train_loader, val_loader, epochs=epochs)
 
             model_path, _ = QFileDialog.getSaveFileName(self, "Save Trained Model", "", "Model Files (*.pth)")

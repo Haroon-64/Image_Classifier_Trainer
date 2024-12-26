@@ -1,6 +1,6 @@
 from torchvision.models import (
     resnet18, resnet34, resnet50, resnet101, resnet152,
-    mobilenet_v3_small, mobilenet_v3_large,
+    mobilenet_v2, mobilenet_v3_large,
     ResNet18_Weights, ResNet34_Weights, ResNet50_Weights,
     ResNet101_Weights, ResNet152_Weights, MobileNet_V2_Weights, MobileNet_V3_Large_Weights
 )
@@ -24,7 +24,7 @@ MODEL_MAP = {
         "xxlarge": resnet152,
     },
     "mobilenet": {
-        "small": mobilenet_v3_small,
+        "small": mobilenet_v2,
         "large": mobilenet_v3_large,
     },
 }
@@ -38,6 +38,6 @@ WEIGHTS_MAP = {
     },
     "mobilenet": {
         "small": MobileNet_V2_Weights.IMAGENET1K_V1,
-        "large": MobileNet_V3_Large_Weights.IMAGENET1K_V1,
+        "large": MobileNet_V3_Large_Weights.IMAGENET1K_V2,  # V2 has better accuracy
     },
 }
