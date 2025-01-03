@@ -174,7 +174,7 @@ def load_model(model_path: str = None):
 
 @app.post("/train")
 def train(background_tasks: BackgroundTasks):
-    """
+    """q
     Start the training process in the background.
     """
     config = state["config"]
