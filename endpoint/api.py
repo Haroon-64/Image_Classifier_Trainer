@@ -77,6 +77,7 @@ class Config(BaseModel):
     batch_size: int = Field(..., description="Batch size for training", example=32)
     learning_rate: float = Field(..., description="Learning rate for training", example=0.001)
     output_path: str = Field(..., description="Path to save models and outputs", example="./output")
+    model_path: str = Field(None, description="Path to load a pre-trained model", example="./output/model.pth")
 
 @app.get("/")
 def root():
@@ -157,7 +158,7 @@ def load_model(model_path: str = None):
     config = state["config"]
     if not config:
         return {"error": "Configuration not set"}
-    model_path = model_path or os.path.join(config.output_path, "model.pth")
+    model_path = config.model_path or os.path.join(config.output_path, "model.pth")
     if not os.path.exists(model_path):
         return {"error": f"Model file not found at {model_path}"}
     try:
@@ -165,7 +166,7 @@ def load_model(model_path: str = None):
         model_class = MODEL_MAP[config.model_name][config.model_size]
         model = model_class()
         # Load model weights
-        model.load_state_dict(torch.load(model_path,map_location=('cuda' if torch.cuda.is_available() else 'cpu')))
+        model.load_state_dict(torch.load(model_path,map_location=('cuda' if torch.cuda.is_available() else 'cpu'),weights_only=True))
         state["model"] = model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
         return {"message": f"Model loaded successfully from {model_path}"}
     except Exception as e:

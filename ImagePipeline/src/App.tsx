@@ -6,7 +6,7 @@ const App: React.FC = () => {
   const [config, setConfig] = useState({
     data_path: '',
     model_name: 'resnet',
-    modelsize: 'small',
+    model_size: 'small',
     image_size: 224,
     transform: 'none',
     num_classes: 2,
@@ -50,7 +50,7 @@ const App: React.FC = () => {
     try {
       const response = await axios.post('http://127.0.0.1:8000/model', {
         model_name: config.model_name,
-        modelsize: config.modelsize,
+        modelsize: config.model_size,
         pretr: true,
       });
       showNotification(response.data.message || 'Model built successfully!');
@@ -177,7 +177,7 @@ const App: React.FC = () => {
           </select>
         </label>
         <label>Model Size: 
-          <select name="modelsize" value={config.modelsize} onChange={handleInputChange}>
+          <select name="modelsize" value={config.model_size} onChange={handleInputChange}>
             <option value="small">Small</option>
             <option value="medium">Medium</option>
             <option value="large">Large</option>
