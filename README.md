@@ -6,6 +6,8 @@ For Currently Working UI in PySide simply `python PyUI/App.py`
 - fixes : Need to log status to UI, No Customisable Models yet, Convert Labels to names 🔴
 - issues : Graphing model doesnt work on windows as graphviz isnt pre installed.  install from `https://graphviz.org/download/`
 
+![PyUI](ui.jpeg)
+
 -------------------------------------------------------------------------------------
 as for FastApi
 
@@ -22,7 +24,9 @@ ImagePipeline has the react + TS UI, resolve dependencies by npm install.
 then run using npm run dev. 🟢
 - need to fix handling path load, model load and build to be able to also choose size 🟡
 
+![TS + REACT ](rui.jpeg)
+
+
 flutter ui doesn't work yet
 
 
-![UI](ui.jpeg)
