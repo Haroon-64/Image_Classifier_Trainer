@@ -13,8 +13,8 @@ uvicorn main:api from endpont/
 
 check endpoints at http://127.0.0.1:8000/docs
 - TODO: need to fix the endpoints for an actual deployment 🟡
--       add database for visualization images
--       add custom layers 🔴
+- add database for visualization images
+- add custom layers 🔴
 
 these can be used in ui then
 
