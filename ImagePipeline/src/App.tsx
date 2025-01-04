@@ -124,44 +124,56 @@ const App: React.FC = () => {
       showNotification('Please upload an image first.');
       return;
     }
-
+  
     if (!modelLoaded) {
-      showNotification('Please load a model first.');
+      showNotification('please load a model first.');
       return;
     }
-
+  
     const formData = new FormData();
-    formData.append('image_path', selectedImage);
+    formData.append('image', selectedImage); // Match the parameter name in the backend
+  
     try {
-      const { data } = await axios.post('http://127.0.0.1:8000/inference', formData);
+      const { data } = await axios.post('http://127.0.0.1:8000/inference', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data', // Required for file uploads
+        },
+      });
       setInferenceResult(`Predicted Class: ${data.predicted_class}`);
     } catch (error) {
       console.error(error);
       showNotification('Error during inference');
     }
   };
+  
 
   const generateSaliencyMap = async () => {
     if (!selectedImage) {
       showNotification('Please upload an image first.');
       return;
     }
-
+  
     if (!modelLoaded) {
       showNotification('Please load a model first.');
       return;
     }
-
+  
     const formData = new FormData();
-    formData.append('image_path', selectedImage);
+    formData.append('image', selectedImage); // Match the parameter name in the backend
     try {
-      const { data } = await axios.post('http://127.0.0.1:8000/saliency', formData);
+      const { data } = await axios.post('http://127.0.0.1:8000/saliency', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data', // Required for file uploads
+        },
+      });
       setSaliencyPath(data.path);
+      showNotification('Saliency map generated successfully!');
     } catch (error) {
       console.error(error);
       showNotification('Error generating saliency map');
     }
   };
+  
 
   return (
     <div className="App">
@@ -170,6 +182,8 @@ const App: React.FC = () => {
       <div className="left-panel">
         <h2>Model Configuration</h2>
         <label>Data Path: <input name="data_path" value={config.data_path} onChange={handleInputChange} /></label>
+        <label>Model Path: <input name="model_path" value={config.model_path} onChange={handleInputChange} /></label>
+
         <label>Model Name:
           <select name="model_name" value={config.model_name} onChange={handleInputChange}>
             <option value="resnet">ResNet</option>
@@ -220,28 +234,3 @@ const App: React.FC = () => {
 
 export default App;
 
-
-
-// import React from "react";
-// import ConfigForm from "./components/ConfigForm.tsx";
-// import DataLoader from "./components/DataLoader.tsx";
-// import ModelBuilder from "./components/ModelBuilder.tsx";
-// import TrainingProgress from "./components/TrainingProgress.tsx";
-// import InferenceSection from "./components/InferenceSection.tsx";
-// import SaliencyViewer from "./components/SaliencyViewer.tsx";
-
-// const App: React.FC = () => {
-//   return (
-//     <div>
-//       <h1>Deep Learning UI</h1>
-//       <ConfigForm />
-//       <DataLoader />
-//       <ModelBuilder />
-//       <TrainingProgress />
-//       <InferenceSection />
-//       <SaliencyViewer />
-//     </div>
-//   );
-// };
-
-// export default App;

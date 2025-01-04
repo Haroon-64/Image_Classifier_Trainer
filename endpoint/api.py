@@ -1,7 +1,7 @@
-from fastapi import BackgroundTasks, FastAPI
+from fastapi import BackgroundTasks, FastAPI,File, UploadFile
 from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
-
+import shutil
 import os
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
@@ -90,6 +90,7 @@ def update_config(config: Config):
     if not os.path.exists(config.output_path):
         os.makedirs(config.output_path)
     state["config"] = config
+    print(config)
     return config
 
 @app.post("/data")
@@ -142,7 +143,7 @@ def save_model(model_path: str = None):
     model = state["model"]
     if not model:
         return {"error": "No model to save"}
-    model_path = model_path or os.path.join(config.output_path, "model.pth")
+    model_path = config.model_path or os.path.join(config.output_path, "model.pth")
     try:
         os.makedirs(os.path.dirname(model_path), exist_ok=True)
         torch.save(model.state_dict(), model_path)
@@ -155,6 +156,7 @@ def load_model(model_path: str = None):
     """
     Load a model from the specified path or the default path.
     """
+    print("load_model function called")
     config = state["config"]
     if not config:
         return {"error": "Configuration not set"}
@@ -168,6 +170,7 @@ def load_model(model_path: str = None):
         # Load model weights
         model.load_state_dict(torch.load(model_path,map_location=('cuda' if torch.cuda.is_available() else 'cpu'),weights_only=True))
         state["model"] = model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+        print(model)
         return {"message": f"Model loaded successfully from {model_path}"}
     except Exception as e:
         return {"error": f"Failed to load model: {str(e)}"}
@@ -223,71 +226,94 @@ def get_training_progress():
         "status": state["training_status"],
     }
 
+
 @app.post("/saliency")
-def generate_saliency(image_path: str, target_class: int = 0):
+async def generate_saliency(image: UploadFile = File(...), target_class: int = 0):
     """
     Generate and save a saliency map for a given input image.
     """
     config = state["config"]
     model = state["model"]
+
     if not model:
         return {"error": "Model not built or loaded"}
-    if not os.path.exists(image_path):
-        return {"error": f"Image path '{image_path}' not found"}
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.eval()
-    model.to(device)
-
-    # Load and preprocess the image
-    image = Image.open(image_path).convert("RGB")
-    transform = transforms.Compose([
-        transforms.Resize((config.image_size, config.image_size)),
-        transforms.ToTensor(),
-    ])
-    input_image = transform(image).unsqueeze(0).to(device)
 
     try:
+        # Save the uploaded image temporarily
+        temp_image_path = f"/tmp/{image.filename}"
+        with open(temp_image_path, "wb") as buffer:
+            shutil.copyfileobj(image.file, buffer)
+
+        if not os.path.exists(temp_image_path):
+            return {"error": f"Image path '{temp_image_path}' not found"}
+
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model.eval()
+        model.to(device)
+
+        # Load and preprocess the image
+        img = Image.open(temp_image_path).convert("RGB")
+        transform = transforms.Compose([
+            transforms.Resize((config.image_size, config.image_size)),
+            transforms.ToTensor(),
+        ])
+        input_image = transform(img).unsqueeze(0).to(device)
+
+        # Generate saliency map
         saliency = Saliency(model)
         saliency_map = saliency.attribute(input_image, target=target_class).squeeze().cpu().numpy()
+        
+        # Save the saliency map
         plt.imshow(saliency_map, cmap="hot")
         saliency_path = os.path.join(config.output_path, "saliency_map.png")
         os.makedirs(config.output_path, exist_ok=True)
         plt.axis("off")
         plt.savefig(saliency_path, bbox_inches="tight", pad_inches=0)
         plt.close()
+
         return {"message": "Saliency map generated", "path": saliency_path}
     except Exception as e:
         return {"error": f"Failed to generate saliency map: {str(e)}"}
 
 @app.post("/inference")
-def inference(image_path: str):
+async def inference(image: UploadFile = File(...)):
     """
-    Perform inference on a given image and return the predicted class.
+    Perform inference on an uploaded image and return the predicted class.
     """
+    print("indference")
     config = state["config"]
     model = state["model"]
+    print(config,model)
     if not model:
+        print("nm")
         return {"error": "Model not built or loaded"}
-    if not os.path.exists(image_path):
-        return {"error": f"Image file '{image_path}' not found"}
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.eval()
-    model.to(device)
-
-    # Load and preprocess the image
-    image = Image.open(image_path).convert("RGB")
-    transform = transforms.Compose([
-        transforms.Resize((config.image_size, config.image_size)),
-        transforms.ToTensor(),
-    ])
-    input_image = transform(image).unsqueeze(0).to(device)
 
     try:
+        # Save the uploaded file temporarily
+        image_path = f"/tmp/{image.filename}"
+        with open(image_path, "wb") as buffer:
+            shutil.copyfileobj(image.file, buffer)
+
+        # Load and preprocess the image
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model.eval()
+        model.to(device)
+
+        from io import BytesIO
+
+        img = Image.open(BytesIO(image.file.read())).convert("RGB")
+        transform = transforms.Compose([
+            transforms.Resize((config.image_size, config.image_size)),
+            transforms.ToTensor(),
+        ])
+        input_image = transform(img).unsqueeze(0).to(device)
+
+        print(input_image)
+        # Perform inference
         with torch.no_grad():
             outputs = model(input_image)
             _, predicted_class = outputs.max(1)
+        print(predicted_class.item())
         return {"predicted_class": predicted_class.item()}
     except Exception as e:
         return {"error": f"Inference failed: {str(e)}"}
