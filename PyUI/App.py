@@ -9,13 +9,25 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                                QHBoxLayout, QPushButton, QLabel, QLineEdit, 
                                QComboBox, QFileDialog, QRadioButton, QGroupBox, 
                                QFormLayout, QMessageBox, QGraphicsView, QGraphicsScene)
+
+from PySide6.QtGui import QPalette, QColor
+
 from PySide6.QtGui import QPixmap
 from PySide6.QtCore import Qt
+
+from qt_material import apply_stylesheet
 
 
 class ModelTrainingApp(QMainWindow):
     def __init__(self):
         super().__init__()
+        app.setStyle("Fusion")  # Apply Fusion style
+        palette = QPalette()
+        # palette.setColor(QPalette.Window, QColor(30, 30, 30))  # Dark background
+        palette.setColor(QPalette.Button, QColor(50, 50, 50))
+        palette.setColor(QPalette.ButtonText, QColor(200, 200, 200))
+        palette.setColor(QPalette.Base, QColor(40, 40, 40))
+        app.setPalette(palette)
 
         self.setWindowTitle("Model Training and Inference")
         self.setGeometry(100, 100, 800, 600)
@@ -205,6 +217,7 @@ class ModelTrainingApp(QMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    apply_stylesheet(app, theme='light_teal.xml')  # Material Design 
     window = ModelTrainingApp()
     window.show()
     sys.exit(app.exec())
