@@ -1,3 +1,5 @@
+-this is a prototype for the actual full project currently ongoing at [link](https://github.com/Haroon-64/AutoPipeline)-
+
 For Currently Working UI in PySide simply `python PyUI/App.py`
 
 - Load data and train works 🟢
@@ -27,6 +29,5 @@ then run using npm run dev. 🟢
 ![TS + REACT ](rui.jpeg)
 
 
-flutter ui doesn't work yet
 
 
